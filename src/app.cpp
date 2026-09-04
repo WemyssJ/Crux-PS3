@@ -57,10 +57,12 @@ namespace App
     // correction as the arm reach above.
     static const float kLimbAspect = 0.185f;
     static const float kLegLength = 0.9f;
-    // 2x per user feedback (were reading as too small relative to the limbs),
-    // then feet dialed back down twice (still reading too big at 0.38).
-    static const Vec2 kHandSize(0.36f, 0.36f);
-    static const Vec2 kFeetSize(0.30f, 0.30f);
+    // Matched against a reference gameplay screenshot the user provided
+    // (hands/feet read as small marker dots at the limb tips, not
+    // prominent detailed shapes) -- both shrunk well below the earlier
+    // "2x" pass, which overshot.
+    static const Vec2 kHandSize(0.18f, 0.18f);
+    static const Vec2 kFeetSize(0.16f, 0.16f);
 
     static TextureHandle sTexBody, sTexHead, sTexArm, sTexLeg, sTexHand, sTexFeet;
 
