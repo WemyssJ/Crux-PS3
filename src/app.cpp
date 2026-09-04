@@ -25,8 +25,14 @@ namespace App
     // TODO: replace with real values from data/player_rig.txt once
     // PS3/Export-Level-+-Rig-Data has been run in the Unity Editor (see
     // Assets/Editor/PS3LevelExporter.cs). These are placeholder guesses.
-    static const Vec2 kHandOffsetLeft(-0.3f, 0.4f);
-    static const Vec2 kHandOffsetRight(0.3f, 0.4f);
+    // Iteration 3: pulled wide/high to read as a V-shaped reach (matches the
+    // reference screenshots) -- was nearly on top of the shoulder anchor
+    // before, which drew arms as short stubs with no clear angle. Since this
+    // point doubles as the swing pivot (see player.h's pivot-invariance
+    // note), this also changes swing radius/feel, not just the visual --
+    // worth re-checking once real rig data replaces this guess.
+    static const Vec2 kHandOffsetLeft(-0.62f, 0.95f);
+    static const Vec2 kHandOffsetRight(0.62f, 0.95f);
     static const float kHandGripRadius = 0.15f;
 
     // Rig sprite proportions -- also placeholder-approximate until real
@@ -39,15 +45,16 @@ namespace App
     static const Vec2 kBodySize(0.6f, 1.2f);
     static const Vec2 kHeadSize(0.62f, 0.62f);
     static const Vec2 kHeadLocalOffset(0.0f, 0.68f);
-    static const Vec2 kShoulderOffsetLeft(-0.30f, 0.42f);
-    static const Vec2 kShoulderOffsetRight(0.30f, 0.42f);
+    static const Vec2 kShoulderOffsetLeft(-0.26f, 0.5f);
+    static const Vec2 kShoulderOffsetRight(0.26f, 0.5f);
     static const Vec2 kHipOffsetLeft(-0.16f, -0.5f);
     static const Vec2 kHipOffsetRight(0.16f, -0.5f);
     static const float kLimbAspect = 63.0f / 512.0f;
     static const float kLegLength = 0.6f;
     static const Vec2 kHandSize(0.18f, 0.18f);
+    static const Vec2 kFeetSize(0.24f, 0.24f);
 
-    static TextureHandle sTexBody, sTexHead, sTexArm, sTexLeg, sTexHand;
+    static TextureHandle sTexBody, sTexHead, sTexArm, sTexLeg, sTexHand, sTexFeet;
 
     static unsigned int TintForHand(Player::HandColor c)
     {
@@ -71,6 +78,7 @@ namespace App
         sTexArm = Render::LoadTexture("arm.png");
         sTexLeg = Render::LoadTexture("leg.png");
         sTexHand = Render::LoadTexture("hand.png");
+        sTexFeet = Render::LoadTexture("feet.png");
 
         if (!sLevel.Load(LEVEL_PATH))
         {
@@ -182,6 +190,8 @@ namespace App
         Vec2 legDirR = RotateAround(Vec2(0, -kLegLength), Vec2(0, 0), bodyRotZ + sPlayer.LegAngleRight());
         DrawLimb(sTexLeg, hipL, hipL + legDirL, kLimbAspect, 0xFFFFFFFF);
         DrawLimb(sTexLeg, hipR, hipR + legDirR, kLimbAspect, 0xFFFFFFFF);
+        Render::DrawTexturedQuad(sTexFeet, hipL + legDirL, kFeetSize, bodyRotZ + sPlayer.LegAngleLeft(), 0xFFFFFFFF);
+        Render::DrawTexturedQuad(sTexFeet, hipR + legDirR, kFeetSize, bodyRotZ + sPlayer.LegAngleRight(), 0xFFFFFFFF);
 
         // Body + head (head keeps its own slightly-lagging rotation, ported from
         // PlayerController.UpdateHead, while still translating with the body).

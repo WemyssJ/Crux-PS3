@@ -34,9 +34,16 @@ Ordered roughly by priority. Rebuild via `build.bat` and screenshot-verify
 (PC) after each meaningful change; keep the PS3 build compiling even where
 it can't be tested on hardware yet.
 
-1. **Rig proportions.** [Iterating] First pass had a too-small head and an
-   over-long torso. Second pass (bigger head, shorter/more compact body and
-   legs) screenshot-verified and clearly closer to the reference look.
+1. **Rig proportions.** [Iterating] Pass 1: too-small head, over-long torso
+   -- fixed (bigger head, more compact body/legs). Pass 2 (user-reported):
+   arms weren't V-shaped (shoulder and hand-grip anchors were almost the
+   same point, so arms rendered as short stubs) and legs had no feet, just
+   a bare trouser sprite -- fixed by pulling the hand-grip anchor
+   (`kHandOffsetLeft/Right` in app.cpp) wide and high, and adding
+   `feet.png` at each leg's end. Screenshot-verified, now a close match to
+   the reference "landing" pose. Note: the hand-grip anchor also doubles
+   as the swing physics pivot, so this changed swing radius/feel too, not
+   just the visual -- worth re-checking gameplay feel, not just looks.
    Still to check: proportions across more poses (mid-swing at speed,
    flying, both-hands-attached, flipped) -- only checked at-rest so far.
 2. **Background rendering.** Load the Cave art
