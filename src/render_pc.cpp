@@ -1,6 +1,7 @@
 #include "render.h"
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
+#include <SDL2/SDL_ttf.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -21,6 +22,10 @@ namespace Render
     static SDL_Texture *sTextures[kMaxTextures] = { NULL };
     static uint32_t sTextureCount = 0;
 
+    static const uint32_t kMaxFonts = 8;
+    static TTF_Font *sFonts[kMaxFonts] = { NULL };
+    static uint32_t sFontCount = 0;
+
     bool Init()
     {
         if (SDL_Init(SDL_INIT_VIDEO) != 0) return false;
@@ -38,6 +43,7 @@ namespace Render
         SDL_SetTextureBlendMode(sWhite, SDL_BLENDMODE_BLEND);
 
         IMG_Init(IMG_INIT_PNG);
+        TTF_Init();
 
         return true;
     }
@@ -46,6 +52,9 @@ namespace Render
     {
         for (uint32_t i = 0; i < sTextureCount; i++)
             if (sTextures[i]) SDL_DestroyTexture(sTextures[i]);
+        for (uint32_t i = 0; i < sFontCount; i++)
+            if (sFonts[i]) TTF_CloseFont(sFonts[i]);
+        TTF_Quit();
         IMG_Quit();
         if (sWhite) SDL_DestroyTexture(sWhite);
         if (sRenderer) SDL_DestroyRenderer(sRenderer);
@@ -70,6 +79,24 @@ namespace Render
 
         sTextures[sTextureCount] = tex;
         return ++sTextureCount; // 1-based; 0 stays "invalid"
+    }
+
+    FontHandle LoadFont(const char *path, int pointSize)
+    {
+        if (sFontCount >= kMaxFonts) return 0;
+
+        char full[512];
+        snprintf(full, sizeof(full), "data/fonts/%s", path);
+
+        TTF_Font *font = TTF_OpenFont(full, pointSize);
+        if (!font)
+        {
+            SDL_Log("LoadFont failed for %s: %s", full, TTF_GetError());
+            return 0;
+        }
+
+        sFonts[sFontCount] = font;
+        return ++sFontCount;
     }
 
     void BeginFrame(Vec2 camPos, float orthoHalfHeight)
@@ -136,6 +163,33 @@ namespace Render
         SDL_SetTextureAlphaMod(t, a);
 
         SDL_RenderCopyEx(sRenderer, t, NULL, &dst, -rotationDeg, NULL, flipX ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE);
+    }
+
+    void DrawUIText(FontHandle font, float nx, float ny, const char *text, unsigned int colorArgb, float scale)
+    {
+        if (font == 0 || font > sFontCount || !sFonts[font - 1] || !text || !text[0]) return;
+
+        SDL_Color color;
+        color.a = (Uint8)((colorArgb >> 24) & 0xFF);
+        color.r = (Uint8)((colorArgb >> 16) & 0xFF);
+        color.g = (Uint8)((colorArgb >> 8) & 0xFF);
+        color.b = (Uint8)(colorArgb & 0xFF);
+
+        SDL_Surface *surf = TTF_RenderText_Blended(sFonts[font - 1], text, color);
+        if (!surf) return;
+
+        SDL_Texture *tex = SDL_CreateTextureFromSurface(sRenderer, surf);
+        int textW = surf->w, textH = surf->h;
+        SDL_FreeSurface(surf);
+        if (!tex) return;
+
+        SDL_Rect dst;
+        dst.x = (int)(nx * kWindowW);
+        dst.y = (int)(ny * kWindowH);
+        dst.w = (int)(textW * scale);
+        dst.h = (int)(textH * scale);
+        SDL_RenderCopy(sRenderer, tex, NULL, &dst);
+        SDL_DestroyTexture(tex);
     }
 
     void EndFrame()

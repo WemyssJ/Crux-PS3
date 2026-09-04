@@ -104,14 +104,20 @@ it can't be tested on hardware yet.
    distance/scale but has visible repetition up close. Real per-sprite
    slicing is a nice-to-have follow-up, not blocking. PS3 side still falls
    back to a flat tinted quad (texture pipeline stub, see below).
-2. **On-screen UI text.** Reference screenshots show `Current` / `PB` / `WR`
-   and a `TROPHIES (Jumps)` panel with Platinum/Gold/Silver/Bronze
-   thresholds in medal colors, plus a player name/ID line — this is
-   `HighscoreManager.cs` + `ScoreManager.cs`'s UI, minus the PlayFab parts
-   (WR can just be omitted or show "--" locally). Needs a text-rendering
-   path: SDL2_ttf is the easy route on PC; PS3 already has `cellDbgFontDrawGcm`
-   wired via gcmutil's `onDbgfont` (see `main_ps3.cpp`) which can host the
-   same info cheaply there.
+2. ~~**On-screen UI text.**~~ [Done] Added `Render::LoadFont`/`DrawUIText`
+   (normalized-screen-space text overlay) to the render interface: PC via
+   SDL2_ttf (font: `data/fonts/ui.ttf`, copied from Unity's own bundled
+   `TextMesh Pro/Fonts/LiberationSans.ttf` -- open-source, safe to
+   redistribute), PS3 via gcmutil's built-in `cellGcmUtilPrintf`/debug font
+   (genuinely functional, not a stub, though color byte-order vs. our ARGB
+   convention isn't verified against real hardware -- flagged inline in
+   `render_ps3.cpp`). `ScoreTracker::FormatScore` added (ported from
+   `ScoreManager.cs`'s time mm:ss:ms / count formatting). `app.cpp`'s new
+   `DrawUIOverlay()` shows Current/PB + a Platinum/Gold/Silver/Bronze
+   trophy panel in medal colors, ported from `HighscoreManager.cs`/
+   `ScoreManager.cs` minus the PlayFab-backed WR (no online leaderboard --
+   just not shown, rather than faked). Screenshot-verified, closely matches
+   the reference screenshots' layout.
 3. **More climbing levels.** Only one placeholder level exists (the tall
    shaft above). Build a few more distinct ones (varied layout/difficulty)
    so the level-select/progression structure exists end-to-end, and wire a

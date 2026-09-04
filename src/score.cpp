@@ -1,4 +1,6 @@
 #include "score.h"
+#include <stdio.h>
+#include <math.h>
 
 ScoreTracker::ScoreTracker()
     : m_type(kScoreTime), m_runActive(false), m_elapsed(0.0f), m_personalBest(0.0f), m_hasPB(false)
@@ -69,4 +71,19 @@ Medal ScoreTracker::MedalFor(float score) const
     if (score <= m_thresholds.gold) return kMedalGold;
     if (score <= m_thresholds.silver) return kMedalSilver;
     return kMedalBronze;
+}
+
+void ScoreTracker::FormatScore(float score, char *buf, int bufSize) const
+{
+    if (m_type == kScoreTime)
+    {
+        int minutes = (int)floorf(score / 60.0f);
+        int seconds = (int)floorf(fmodf(score, 60.0f));
+        int millis = (int)floorf(fmodf(score * 1000.0f, 1000.0f));
+        snprintf(buf, bufSize, "%02d:%02d:%03d", minutes, seconds, millis);
+    }
+    else
+    {
+        snprintf(buf, bufSize, "%d", (int)(score + (score >= 0.0f ? 0.5f : -0.5f)));
+    }
 }

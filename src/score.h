@@ -45,6 +45,11 @@ public:
     float PersonalBest() const { return m_personalBest; }
     Medal MedalFor(float score) const;
     bool IsBetter(float current, float best) const;
+    const MedalThresholds &Thresholds() const { return m_thresholds; }
+    ScoreType Type() const { return m_type; }
+
+    // Ported from ScoreManager.cs's FormatScore. buf must be at least 16 bytes.
+    void FormatScore(float score, char *buf, int bufSize) const;
 
 private:
     ScoreType m_type;

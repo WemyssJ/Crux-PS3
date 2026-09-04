@@ -6,6 +6,7 @@
 #include "camera2d.h"
 #include "score.h"
 #include <math.h>
+#include <stdio.h>
 
 #if defined(CRUX_PS3)
 #define LEVEL_PATH SYS_APP_HOME "/data/level1.lvl"
@@ -73,6 +74,7 @@ namespace App
     static const Vec2 kFeetSize(0.20f, 0.20f);
 
     static TextureHandle sTexBody, sTexHead, sTexArm, sTexLeg, sTexHand, sTexFeet, sTexShoulder, sTexBag, sTexCaveBg;
+    static FontHandle sFontUI;
 
     // cave_bg.png is a whole Unity sprite atlas (multiple rock formations
     // meant to be sliced into individual sprites via .asset metadata we
@@ -109,6 +111,7 @@ namespace App
         sTexShoulder = Render::LoadTexture("shoulder.png");
         sTexBag = Render::LoadTexture("bag.png");
         sTexCaveBg = Render::LoadTexture("cave_bg.png");
+        sFontUI = Render::LoadFont("ui.ttf", 20);
 
         if (!sLevel.Load(LEVEL_PATH))
         {
@@ -185,6 +188,62 @@ namespace App
         Vec2 center = (from + to) * 0.5f;
         float angle = AngleAlong(d);
         Render::DrawTexturedQuad(tex, center, Vec2(length * aspect, length), angle, tint);
+    }
+
+    static const char *ScoreTypeName(ScoreType t)
+    {
+        switch (t)
+        {
+            case kScoreTime: return "Time";
+            case kScoreJumps: return "Jumps";
+            case kScoreFlips: return "Flips";
+            case kScoreSwings: return "Swings";
+        }
+        return "";
+    }
+
+    // Ported from HighscoreManager.cs/ScoreManager.cs's UI (Current/PB/WR +
+    // trophy thresholds) minus the PlayFab-backed parts -- WR has no meaning
+    // without an online leaderboard (dropped per project scope), so it's
+    // just not shown rather than displaying a fake value.
+    static void DrawUIOverlay()
+    {
+        char buf[32];
+        const unsigned int kUIWhite = 0xFFE0E0E0;
+
+        sScore.FormatScore(sScore.CurrentScore(sPlayer), buf, sizeof(buf));
+        char line[64];
+        snprintf(line, sizeof(line), "Current: %s", buf);
+        Render::DrawUIText(sFontUI, 0.03f, 0.03f, line, kUIWhite);
+
+        if (sScore.HasPersonalBest())
+        {
+            sScore.FormatScore(sScore.PersonalBest(), buf, sizeof(buf));
+            snprintf(line, sizeof(line), "PB: %s", buf);
+        }
+        else
+        {
+            snprintf(line, sizeof(line), "PB: --");
+        }
+        Render::DrawUIText(sFontUI, 0.03f, 0.07f, line, kUIWhite);
+
+        snprintf(line, sizeof(line), "TROPHIES (%s)", ScoreTypeName(sScore.Type()));
+        Render::DrawUIText(sFontUI, 0.03f, 0.13f, line, kUIWhite);
+
+        const MedalThresholds &th = sScore.Thresholds();
+        sScore.FormatScore(th.platinum, buf, sizeof(buf));
+        snprintf(line, sizeof(line), "Platinum: %s", buf);
+        Render::DrawUIText(sFontUI, 0.03f, 0.17f, line, 0xFF40E0E0);
+
+        sScore.FormatScore(th.gold, buf, sizeof(buf));
+        snprintf(line, sizeof(line), "Gold: %s", buf);
+        Render::DrawUIText(sFontUI, 0.03f, 0.21f, line, 0xFFD4AF37);
+
+        sScore.FormatScore(th.silver, buf, sizeof(buf));
+        snprintf(line, sizeof(line), "Silver: %s", buf);
+        Render::DrawUIText(sFontUI, 0.03f, 0.25f, line, 0xFFC0C0C0);
+
+        Render::DrawUIText(sFontUI, 0.03f, 0.29f, "Bronze: any", 0xFFCD7F32);
     }
 
     void Draw()
@@ -306,6 +365,8 @@ namespace App
         Vec2 handOffsetR = RotateAround(armDirLocalR * (-kHandSize.y * 0.35f), Vec2(0, 0), bodyRotZ);
         Render::DrawTexturedQuad(sTexHand, sPlayer.HandWorldLeft() + handOffsetL, kHandSize, bodyRotZ, TintForHand(sPlayer.LeftHandColor()), !flip);
         Render::DrawTexturedQuad(sTexHand, sPlayer.HandWorldRight() + handOffsetR, kHandSize, bodyRotZ, TintForHand(sPlayer.RightHandColor()), flip);
+
+        DrawUIOverlay();
 
         Render::EndFrame();
     }

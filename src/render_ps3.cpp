@@ -187,6 +187,28 @@ namespace Render
         DrawQuad(center, size, rotationDeg, tintArgb);
     }
 
+    FontHandle LoadFont(const char * /*path*/, int /*pointSize*/)
+    {
+        // gcmutil ships one fixed built-in debug font (cellDbgFontDrawGcm),
+        // no per-font loading concept -- return a nonzero dummy so call
+        // sites that check "== 0" for failure don't misreport success as
+        // failure. DrawUIText below ignores the handle value entirely.
+        return 1;
+    }
+
+    void DrawUIText(FontHandle /*font*/, float nx, float ny, const char *text, unsigned int colorArgb, float scale)
+    {
+        if (!text || !text[0]) return;
+        // NOTE: color byte order not verified against gcmutil's own
+        // convention (couldn't test on hardware) -- basic2's sample only
+        // ever passes 0xffffffff, which doesn't disambiguate ARGB vs RGBA.
+        // If text comes out the wrong color on real hardware, swap R/B here.
+        cellGcmUtilSetPrintSize(0.5f * (scale > 0.0f ? scale : 1.0f));
+        cellGcmUtilSetPrintPos(nx, ny);
+        cellGcmUtilSetPrintColor(colorArgb);
+        cellGcmUtilPrintf("%s\n", text);
+    }
+
     void EndFrame()
     {
         // Flip is driven by the SampleBasic template's main loop (main_ps3.cpp),
