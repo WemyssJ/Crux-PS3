@@ -44,6 +44,10 @@ it can't be tested on hardware yet.
    the reference "landing" pose. Note: the hand-grip anchor also doubles
    as the swing physics pivot, so this changed swing radius/feel too, not
    just the visual -- worth re-checking gameplay feel, not just looks.
+   Pass 3 (user-reported): arms/legs still ~50% too small overall (length
+   and thickness) -- scaled reach anchor and leg length 1.5x, and widened
+   the limb aspect ratio beyond the raw source PNG ratio (63/512 -> 0.185)
+   for a chunkier look. Screenshot-verified, clear improvement.
    Still to check: proportions across more poses (mid-swing at speed,
    flying, both-hands-attached, flipped) -- only checked at-rest so far.
 2. **Background rendering.** Load the Cave art

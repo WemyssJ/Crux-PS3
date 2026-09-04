@@ -31,8 +31,11 @@ namespace App
     // point doubles as the swing pivot (see player.h's pivot-invariance
     // note), this also changes swing radius/feel, not just the visual --
     // worth re-checking once real rig data replaces this guess.
-    static const Vec2 kHandOffsetLeft(-0.62f, 0.95f);
-    static const Vec2 kHandOffsetRight(0.62f, 0.95f);
+    // Iteration 4 (user-reported): arms/legs read as ~50% too small overall
+    // (both length and thickness) -- scaled the reach anchor 1.5x from the
+    // previous iteration's (-0.62, 0.95).
+    static const Vec2 kHandOffsetLeft(-0.93f, 1.43f);
+    static const Vec2 kHandOffsetRight(0.93f, 1.43f);
     static const float kHandGripRadius = 0.15f;
 
     // Rig sprite proportions -- also placeholder-approximate until real
@@ -49,8 +52,11 @@ namespace App
     static const Vec2 kShoulderOffsetRight(0.26f, 0.5f);
     static const Vec2 kHipOffsetLeft(-0.16f, -0.5f);
     static const Vec2 kHipOffsetRight(0.16f, -0.5f);
-    static const float kLimbAspect = 63.0f / 512.0f;
-    static const float kLegLength = 0.6f;
+    // Thickness deliberately wider than the raw source PNG ratio (63/512 =
+    // 0.123) and leg length scaled 1.5x from 0.6 -- same "~50% too small"
+    // correction as the arm reach above.
+    static const float kLimbAspect = 0.185f;
+    static const float kLegLength = 0.9f;
     static const Vec2 kHandSize(0.18f, 0.18f);
     static const Vec2 kFeetSize(0.24f, 0.24f);
 
