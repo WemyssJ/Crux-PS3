@@ -57,8 +57,9 @@ namespace App
     // correction as the arm reach above.
     static const float kLimbAspect = 0.185f;
     static const float kLegLength = 0.9f;
-    static const Vec2 kHandSize(0.18f, 0.18f);
-    static const Vec2 kFeetSize(0.24f, 0.24f);
+    // 2x per user feedback (were reading as too small relative to the limbs).
+    static const Vec2 kHandSize(0.36f, 0.36f);
+    static const Vec2 kFeetSize(0.48f, 0.48f);
 
     static TextureHandle sTexBody, sTexHead, sTexArm, sTexLeg, sTexHand, sTexFeet;
 

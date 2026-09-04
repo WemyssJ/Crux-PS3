@@ -48,6 +48,8 @@ it can't be tested on hardware yet.
    and thickness) -- scaled reach anchor and leg length 1.5x, and widened
    the limb aspect ratio beyond the raw source PNG ratio (63/512 -> 0.185)
    for a chunkier look. Screenshot-verified, clear improvement.
+   Pass 4 (user-reported): hands/feet also too small -- doubled kHandSize
+   and kFeetSize. Screenshot-verified, both now clearly visible/readable.
    Still to check: proportions across more poses (mid-swing at speed,
    flying, both-hands-attached, flipped) -- only checked at-rest so far.
 2. **Background rendering.** Load the Cave art

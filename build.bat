@@ -17,10 +17,10 @@ if errorlevel 1 (
     echo.
     echo PC build OK -^> crux_pc.exe
     if not exist "Build\PC" mkdir "Build\PC"
-    copy /y crux_pc.exe "Build\PC\" >nul
-    copy /y *.dll "Build\PC\" >nul
+    move /y crux_pc.exe "Build\PC\" >nul
+    move /y *.dll "Build\PC\" >nul
     xcopy /y /e /i /q data "Build\PC\data\" >nul
-    echo Staged -^> Build\PC\
+    echo Staged -^> Build\PC\ ^(no duplicate left in project root^)
 )
 
 echo.
@@ -36,13 +36,13 @@ if errorlevel 1 (
     echo.
     echo PS3 build OK -^> crux.ppu.self
     if not exist "Build\PS3" mkdir "Build\PS3"
-    copy /y crux.ppu.self "Build\PS3\" >nul
-    copy /y crux.ppu.elf "Build\PS3\" >nul
-    copy /y vs_quad.vpo "Build\PS3\" >nul
-    copy /y fs_quad.fpo "Build\PS3\" >nul
+    move /y crux.ppu.self "Build\PS3\" >nul
+    move /y crux.ppu.elf "Build\PS3\" >nul
+    move /y vs_quad.vpo "Build\PS3\" >nul
+    move /y fs_quad.fpo "Build\PS3\" >nul
     xcopy /y /e /i /q data "Build\PS3\data\" >nul
     copy /y PS3_DEPLOY_README.txt "Build\PS3\README.txt" >nul
-    echo Staged -^> Build\PS3\
+    echo Staged -^> Build\PS3\ ^(no duplicate left in project root^)
 )
 
 echo.
