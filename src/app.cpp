@@ -9,10 +9,10 @@
 #include <stdio.h>
 
 #if defined(CRUX_PS3)
-#define LEVEL_PATH SYS_APP_HOME "/data/level1.lvl"
+#define LEVEL_PATH_FMT SYS_APP_HOME "/data/level%d.lvl"
 #include <sys/paths.h>
 #else
-#define LEVEL_PATH "data/level1.lvl"
+#define LEVEL_PATH_FMT "data/level%d.lvl"
 #endif
 
 namespace App
@@ -22,6 +22,35 @@ namespace App
     static Camera2D sCamera;
     static ScoreTracker sScore;
     static bool sUsingPlaceholder = false;
+    static int sLevelIndex = 0;
+
+    // Tries data/level<N+1>.lvl (real exported data, once
+    // PS3/Export-Level-+-Rig-Data has been run in Unity -- see TODO.md)
+    // before falling back to one of LevelData's built-in placeholder
+    // layouts. Ported flow: LevelEndTrigger reaching the end (via
+    // TouchesEndTrigger in Update()) advances to the next index and wraps,
+    // matching a simple linear level-progression loop (no level-select menu
+    // yet -- see TODO.md).
+    static void LoadLevelByIndex(int index)
+    {
+        char path[128];
+        snprintf(path, sizeof(path), LEVEL_PATH_FMT, index + 1);
+
+        if (!sLevel.Load(path))
+        {
+            sLevel.LoadPlaceholderLevel(index);
+            sUsingPlaceholder = true;
+        }
+        else
+        {
+            sUsingPlaceholder = false;
+        }
+
+        sPlayer.Reset(sLevel.PlayerStart());
+        sCamera.Reset(sLevel.PlayerStart());
+        sScore.ResetPersonalBest();
+        sScore.StartRun();
+    }
 
     // TODO: replace with real values from data/player_rig.txt once
     // PS3/Export-Level-+-Rig-Data has been run in the Unity Editor (see
@@ -113,19 +142,13 @@ namespace App
         sTexCaveBg = Render::LoadTexture("cave_bg.png");
         sFontUI = Render::LoadFont("ui.ttf", 20);
 
-        if (!sLevel.Load(LEVEL_PATH))
-        {
-            sLevel.LoadPlaceholderTestRoom();
-            sUsingPlaceholder = true;
-        }
-
         sPlayer.Configure(kHandOffsetLeft, kHandOffsetRight, kHandGripRadius);
-        sPlayer.Reset(sLevel.PlayerStart());
-        sCamera.Reset(sLevel.PlayerStart());
 
         MedalThresholds thresholds;
         sScore.Configure(kScoreTime, thresholds);
-        sScore.StartRun();
+
+        sLevelIndex = 0;
+        LoadLevelByIndex(sLevelIndex);
 
         return true;
     }
@@ -156,7 +179,17 @@ namespace App
         Vec2 body = sPlayer.BodyPos();
         if (sLevel.TouchesEndTrigger(body, 0.3f) >= 0)
         {
-            sScore.StopRun(sPlayer);
+            if (sScore.IsRunActive())
+            {
+                sScore.StopRun(sPlayer);
+                // No level-select menu yet (see TODO.md) -- advance straight
+                // to the next level, wrapping after the last placeholder.
+                // LoadLevelByIndex resets the player away from this trigger,
+                // so there's no same-frame re-trigger risk.
+                sLevelIndex = (sLevelIndex + 1) % LevelData::PlaceholderLevelCount();
+                LoadLevelByIndex(sLevelIndex);
+            }
+            return;
         }
         if (sLevel.TouchesResetTrigger(body, 0.3f) >= 0)
         {

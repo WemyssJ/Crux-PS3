@@ -34,11 +34,18 @@ public:
     ScoreTracker();
 
     void Configure(ScoreType type, MedalThresholds thresholds);
+    // Levels aren't the same shape, so a PB from one is meaningless (or
+    // misleading) on another -- call when switching levels. Also means PBs
+    // don't persist across a level revisit yet, same as they don't survive
+    // a relaunch (see the TODO on StopRun) -- real per-level persistence is
+    // still open.
+    void ResetPersonalBest() { m_hasPB = false; m_personalBest = 0.0f; }
     void StartRun();
     // Call every frame while a run is active; drives the Time score type.
     void Tick(float dt);
     // Call once when the player reaches the level-end trigger.
     void StopRun(const Player &player);
+    bool IsRunActive() const { return m_runActive; }
 
     float CurrentScore(const Player &player) const;
     bool HasPersonalBest() const { return m_hasPB; }

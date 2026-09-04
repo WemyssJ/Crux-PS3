@@ -94,7 +94,19 @@ bool LevelData::Load(const char *path)
     return true;
 }
 
-void LevelData::LoadPlaceholderTestRoom()
+void LevelData::LoadPlaceholderLevel(int index)
+{
+    int count = PlaceholderLevelCount();
+    int wrapped = ((index % count) + count) % count;
+    switch (wrapped)
+    {
+        case 0: LoadPlaceholderShaft(); break;
+        case 1: LoadPlaceholderCavern(); break;
+        case 2: LoadPlaceholderChimney(); break;
+    }
+}
+
+void LevelData::LoadPlaceholderShaft()
 {
     Unload();
 
@@ -141,6 +153,109 @@ void LevelData::LoadPlaceholderTestRoom()
                 for (int i = 1; i <= reach; i++)
                     m_cells[(m_boundsMaxX - 1 - i - m_boundsMinX) + ly * m_width] = true;
             }
+        }
+    }
+
+    m_playerStart = Vec2(0.0f, 2.0f);
+
+    m_endTriggerCount = 1;
+    m_endTriggers[0].center = Vec2(0.0f, (float)(m_boundsMaxY - 2));
+    m_endTriggers[0].size = Vec2((float)m_width, 1.0f);
+
+    m_resetTriggerCount = 1;
+    m_resetTriggers[0].center = Vec2(0.0f, (float)(m_boundsMinY + 0.5f));
+    m_resetTriggers[0].size = Vec2((float)m_width, 1.0f);
+}
+
+void LevelData::LoadPlaceholderCavern()
+{
+    Unload();
+
+    // Wide and comparatively short, with scattered floating platforms (not
+    // touching either wall) instead of ledges -- forces flight-jump
+    // traversal between islands rather than continuous swinging, the
+    // opposite emphasis from the shaft level.
+    m_cellSize = Vec2(1.0f, 1.0f);
+    m_origin = Vec2(0.0f, 0.0f);
+    m_boundsMinX = -20; m_boundsMinY = -3;
+    m_boundsMaxX = 20; m_boundsMaxY = 22;
+    m_width = m_boundsMaxX - m_boundsMinX;
+    m_height = m_boundsMaxY - m_boundsMinY;
+    m_cells = (bool *)malloc(sizeof(bool) * m_width * m_height);
+    memset(m_cells, 0, sizeof(bool) * m_width * m_height);
+
+    for (int cx = m_boundsMinX; cx < m_boundsMaxX; cx++)
+        m_cells[(cx - m_boundsMinX) + (0 - m_boundsMinY) * m_width] = true; // floor
+
+    // Floating islands, stepping up and to the right in a loose staircase,
+    // each just out of comfortable swing range of the last -- gaps grow
+    // with height like the shaft does, for the same reason.
+    struct Island { int cx, cy, w; };
+    static const Island islands[] = {
+        { -14, 5, 4 }, { -6, 8, 3 }, { 2, 6, 4 }, { 9, 10, 3 },
+        { -10, 13, 3 }, { -1, 16, 4 }, { 8, 14, 3 }, { 14, 18, 5 },
+    };
+    for (size_t i = 0; i < sizeof(islands) / sizeof(islands[0]); i++)
+    {
+        const Island &isl = islands[i];
+        int ly = isl.cy - m_boundsMinY;
+        if (ly < 0 || ly >= m_height) continue;
+        for (int dx = 0; dx < isl.w; dx++)
+        {
+            int lx = (isl.cx + dx) - m_boundsMinX;
+            if (lx >= 0 && lx < m_width) m_cells[lx + ly * m_width] = true;
+        }
+    }
+
+    // Side walls so a missed jump doesn't sail off into the void sideways.
+    for (int cy = 1; cy < m_boundsMaxY - 1; cy++)
+    {
+        int ly = cy - m_boundsMinY;
+        m_cells[(m_boundsMinX - m_boundsMinX) + ly * m_width] = true;
+        m_cells[(m_boundsMaxX - 1 - m_boundsMinX) + ly * m_width] = true;
+    }
+
+    m_playerStart = Vec2(-17.0f, 2.0f);
+
+    m_endTriggerCount = 1;
+    m_endTriggers[0].center = Vec2(16.0f, (float)(m_boundsMaxY - 3));
+    m_endTriggers[0].size = Vec2(5.0f, 2.0f);
+
+    m_resetTriggerCount = 1;
+    m_resetTriggers[0].center = Vec2(0.0f, (float)(m_boundsMinY + 0.5f));
+    m_resetTriggers[0].size = Vec2((float)m_width, 1.0f);
+}
+
+void LevelData::LoadPlaceholderChimney()
+{
+    Unload();
+
+    // Narrow shaft (walls close together) -- forces frequent alternating
+    // swings with little room to build flight speed, the opposite emphasis
+    // from the cavern level. Ledges alternate almost every row.
+    m_cellSize = Vec2(1.0f, 1.0f);
+    m_origin = Vec2(0.0f, 0.0f);
+    m_boundsMinX = -3; m_boundsMinY = -3;
+    m_boundsMaxX = 3; m_boundsMaxY = 40;
+    m_width = m_boundsMaxX - m_boundsMinX;
+    m_height = m_boundsMaxY - m_boundsMinY;
+    m_cells = (bool *)malloc(sizeof(bool) * m_width * m_height);
+    memset(m_cells, 0, sizeof(bool) * m_width * m_height);
+
+    for (int cx = m_boundsMinX; cx < m_boundsMaxX; cx++)
+        m_cells[(cx - m_boundsMinX) + (0 - m_boundsMinY) * m_width] = true; // floor
+
+    for (int cy = 1; cy < m_boundsMaxY - 1; cy++)
+    {
+        int ly = cy - m_boundsMinY;
+        m_cells[(m_boundsMinX - m_boundsMinX) + ly * m_width] = true;
+        m_cells[(m_boundsMaxX - 1 - m_boundsMinX) + ly * m_width] = true;
+
+        if (cy % 2 == 0)
+        {
+            bool fromLeft = ((cy / 2) % 2) == 0;
+            int lx = fromLeft ? (m_boundsMinX + 1 - m_boundsMinX) : (m_boundsMaxX - 2 - m_boundsMinX);
+            m_cells[lx + ly * m_width] = true;
         }
     }
 

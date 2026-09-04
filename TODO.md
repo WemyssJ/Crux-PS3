@@ -118,15 +118,29 @@ it can't be tested on hardware yet.
    `ScoreManager.cs` minus the PlayFab-backed WR (no online leaderboard --
    just not shown, rather than faked). Screenshot-verified, closely matches
    the reference screenshots' layout.
-3. **More climbing levels.** Only one placeholder level exists (the tall
-   shaft above). Build a few more distinct ones (varied layout/difficulty)
-   so the level-select/progression structure exists end-to-end, and wire a
-   `LevelReset.cs`/`LevelEnd.cs`-equivalent flow between them. Swap for
-   real exported data once available (see "Blocked on the user").
+3. ~~**More climbing levels.**~~ [Done] `LevelData::LoadPlaceholderLevel(int)`
+   now dispatches to 3 distinct layouts (`LevelData::PlaceholderLevelCount()`):
+   the original tall shaft, a wide "cavern" with floating platform islands
+   (flight-jump-focused), and a narrow "chimney" with alternating nubs every
+   row (tight continuous-swing-focused). `app.cpp`'s `LoadLevelByIndex`
+   tries `data/levelN.lvl` first (real exported data, once available) before
+   falling back to the placeholder for that index. Reaching the end trigger
+   now auto-advances to the next level (wrapping after the last) instead of
+   just stopping the run in place -- simple linear progression, no
+   level-select menu yet. All 3 layouts screenshot-verified individually.
+   Fixed a correctness issue found along the way: PB was a single global
+   value that would've misleadingly carried over between structurally
+   different levels -- added `ScoreTracker::ResetPersonalBest()`, called on
+   every level load. Note this means PBs don't persist per-level either
+   (same root cause as item 4 below, just a different symptom -- worth
+   fixing together).
 4. **PB persistence.** `ScoreTracker` currently keeps personal-bests in
-   memory only (resets on relaunch) — see the TODO comment in `score.cpp`.
-   Wire real persistence: a simple local file on PC (fully testable now);
-   `cellSaveData` on PS3 (compiles, but can't be verified without hardware).
+   memory only, and only for the *current* level (resets on relaunch AND on
+   switching levels — see the TODO comment in `score.cpp` and item 3 above).
+   Needs to be **per-level**, not a single value: a small keyed store (level
+   index -> best score) rather than one float. Wire real persistence: a
+   simple local file on PC (fully testable now); `cellSaveData` on PS3
+   (compiles, but can't be verified without hardware).
 5. **PS3 texture pipeline.** `Render::LoadTexture`/`DrawTexturedQuad` in
    `render_ps3.cpp` are stubs (see the TODO comment there) — falls back to
    flat-colored quads. Needs: PNG→DDS conversion (check for a usable

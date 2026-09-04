@@ -24,11 +24,17 @@ public:
     bool Load(const char *path);
     void Unload();
 
-    // Builds a small hand-authored test room (floor + side walls + a scattering
-    // of grip ledges) in place of real exported data. Used as a fallback until
+    // Builds one of a handful of hand-authored test levels (varied layout/
+    // difficulty) in place of real exported data. Used as a fallback until
     // Assets/Editor/PS3LevelExporter.cs has actually been run in the Unity
     // Editor (its output isn't checked in yet -- see the project plan).
-    void LoadPlaceholderTestRoom();
+    // index wraps modulo PlaceholderLevelCount().
+    void LoadPlaceholderLevel(int index);
+    static int PlaceholderLevelCount() { return 3; }
+
+    // Kept for source compatibility with earlier callers -- level 0 (the
+    // tall shaft).
+    void LoadPlaceholderTestRoom() { LoadPlaceholderLevel(0); }
 
     // Cell (cx, cy) is solid ground/wall.
     bool HasWallAtCell(int cx, int cy) const;
@@ -54,6 +60,10 @@ public:
     Vec2 PlayerStart() const { return m_playerStart; }
 
 private:
+    void LoadPlaceholderShaft();   // level 0: tall vertical shaft, staggered ledges
+    void LoadPlaceholderCavern();  // level 1: wide, scattered floating platforms
+    void LoadPlaceholderChimney(); // level 2: narrow shaft, frequent swings, little room to fly
+
     Vec2 m_cellSize;
     Vec2 m_origin;
     int m_boundsMinX, m_boundsMinY, m_boundsMaxX, m_boundsMaxY;
