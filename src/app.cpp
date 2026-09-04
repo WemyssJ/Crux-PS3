@@ -57,9 +57,10 @@ namespace App
     // correction as the arm reach above.
     static const float kLimbAspect = 0.185f;
     static const float kLegLength = 0.9f;
-    // 2x per user feedback (were reading as too small relative to the limbs).
+    // 2x per user feedback (were reading as too small relative to the limbs),
+    // then feet dialed back down slightly (2x read as a bit too big).
     static const Vec2 kHandSize(0.36f, 0.36f);
-    static const Vec2 kFeetSize(0.48f, 0.48f);
+    static const Vec2 kFeetSize(0.38f, 0.38f);
 
     static TextureHandle sTexBody, sTexHead, sTexArm, sTexLeg, sTexHand, sTexFeet;
 
@@ -198,9 +199,19 @@ namespace App
         DrawLimb(sTexLeg, hipL, hipL + legDirL, kLimbAspect, 0xFFFFFFFF);
         DrawLimb(sTexLeg, hipR, hipR + legDirR, kLimbAspect, 0xFFFFFFFF);
         // Hand.png/Feet.png are authored facing one direction (not symmetric),
-        // so the left side needs a horizontal mirror to match visually.
-        Render::DrawTexturedQuad(sTexFeet, hipL + legDirL, kFeetSize, bodyRotZ + sPlayer.LegAngleLeft(), 0xFFFFFFFF, true);
-        Render::DrawTexturedQuad(sTexFeet, hipR + legDirR, kFeetSize, bodyRotZ + sPlayer.LegAngleRight(), 0xFFFFFFFF);
+        // so one side needs a horizontal mirror to match visually.
+        //
+        // Feet.png's heel sits toward the top-left of the image, toe toward
+        // the right -- anchor by the heel (where the leg meets the shoe)
+        // rather than the sprite's geometric center. The offset's X sign
+        // flips with the mirror so "heel-side" tracks the visually-mirrored
+        // image, not the unflipped source.
+        float legAngleL = bodyRotZ + sPlayer.LegAngleLeft();
+        float legAngleR = bodyRotZ + sPlayer.LegAngleRight();
+        Vec2 footOffsetL = RotateAround(Vec2(kFeetSize.x * 0.28f, kFeetSize.y * 0.18f), Vec2(0, 0), legAngleL);
+        Vec2 footOffsetR = RotateAround(Vec2(-kFeetSize.x * 0.28f, kFeetSize.y * 0.18f), Vec2(0, 0), legAngleR);
+        Render::DrawTexturedQuad(sTexFeet, hipL + legDirL + footOffsetL, kFeetSize, legAngleL, 0xFFFFFFFF, true);
+        Render::DrawTexturedQuad(sTexFeet, hipR + legDirR + footOffsetR, kFeetSize, legAngleR, 0xFFFFFFFF);
 
         // Body + head (head keeps its own slightly-lagging rotation, ported from
         // PlayerController.UpdateHead, while still translating with the body).
@@ -219,8 +230,12 @@ namespace App
         // User-reported: previous flip assignment had both hands backwards --
         // Hand.png reads naturally as a LEFT hand, so it's the right hand that
         // needs mirroring, not the left.
-        Render::DrawTexturedQuad(sTexHand, sPlayer.HandWorldLeft(), kHandSize, bodyRotZ, TintForHand(sPlayer.LeftHandColor()));
-        Render::DrawTexturedQuad(sTexHand, sPlayer.HandWorldRight(), kHandSize, bodyRotZ, TintForHand(sPlayer.RightHandColor()), true);
+        // Hand.png's wrist/cuff sits toward the bottom of the image (fingers
+        // spread upward), roughly horizontally centered -- so this offset
+        // needs no left/right sign flip like the foot one does.
+        Vec2 handOffset = RotateAround(Vec2(0.0f, -kHandSize.y * 0.35f), Vec2(0, 0), bodyRotZ);
+        Render::DrawTexturedQuad(sTexHand, sPlayer.HandWorldLeft() + handOffset, kHandSize, bodyRotZ, TintForHand(sPlayer.LeftHandColor()));
+        Render::DrawTexturedQuad(sTexHand, sPlayer.HandWorldRight() + handOffset, kHandSize, bodyRotZ, TintForHand(sPlayer.RightHandColor()), true);
 
         Render::EndFrame();
     }
