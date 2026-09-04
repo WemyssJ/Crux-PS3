@@ -58,9 +58,9 @@ namespace App
     static const float kLimbAspect = 0.185f;
     static const float kLegLength = 0.9f;
     // 2x per user feedback (were reading as too small relative to the limbs),
-    // then feet dialed back down slightly (2x read as a bit too big).
+    // then feet dialed back down twice (still reading too big at 0.38).
     static const Vec2 kHandSize(0.36f, 0.36f);
-    static const Vec2 kFeetSize(0.38f, 0.38f);
+    static const Vec2 kFeetSize(0.30f, 0.30f);
 
     static TextureHandle sTexBody, sTexHead, sTexArm, sTexLeg, sTexHand, sTexFeet;
 
@@ -227,14 +227,13 @@ namespace App
         DrawLimb(sTexArm, shoulderR, sPlayer.HandWorldRight(), kLimbAspect, 0xFFFFFFFF);
 
         // Hands, tinted by grip state (ported from PlayerController.SetHandsColor).
-        // User-reported: previous flip assignment had both hands backwards --
-        // Hand.png reads naturally as a LEFT hand, so it's the right hand that
-        // needs mirroring, not the left.
+        // User-reported (latest): both hands need mirroring from the previous
+        // state (left unflipped/right flipped) -- both now flipped.
         // Hand.png's wrist/cuff sits toward the bottom of the image (fingers
         // spread upward), roughly horizontally centered -- so this offset
         // needs no left/right sign flip like the foot one does.
         Vec2 handOffset = RotateAround(Vec2(0.0f, -kHandSize.y * 0.35f), Vec2(0, 0), bodyRotZ);
-        Render::DrawTexturedQuad(sTexHand, sPlayer.HandWorldLeft() + handOffset, kHandSize, bodyRotZ, TintForHand(sPlayer.LeftHandColor()));
+        Render::DrawTexturedQuad(sTexHand, sPlayer.HandWorldLeft() + handOffset, kHandSize, bodyRotZ, TintForHand(sPlayer.LeftHandColor()), true);
         Render::DrawTexturedQuad(sTexHand, sPlayer.HandWorldRight() + handOffset, kHandSize, bodyRotZ, TintForHand(sPlayer.RightHandColor()), true);
 
         Render::EndFrame();
