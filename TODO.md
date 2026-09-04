@@ -34,11 +34,11 @@ Ordered roughly by priority. Rebuild via `build.bat` and screenshot-verify
 (PC) after each meaningful change; keep the PS3 build compiling even where
 it can't be tested on hardware yet.
 
-1. **Rig proportions.** Current arm/leg/shoulder/hip offsets in `app.cpp`
-   (`kShoulderOffsetLeft` etc.) are hand-guessed. Iterate against the
-   reference screenshots the user shared (character mid-swing on a rock
-   cave background, red helmet, blue overalls) until the silhouette reads
-   right in a range of poses (hanging, mid-swing, flying, both-hands-attached).
+1. **Rig proportions.** [Iterating] First pass had a too-small head and an
+   over-long torso. Second pass (bigger head, shorter/more compact body and
+   legs) screenshot-verified and clearly closer to the reference look.
+   Still to check: proportions across more poses (mid-swing at speed,
+   flying, both-hands-attached, flipped) -- only checked at-rest so far.
 2. **Background rendering.** Load the Cave art
    (`Assets/Art/Background/Stylised/Cave/*.png`) and draw it behind the
    tile grid instead of the flat navy fill. Reference screenshots show

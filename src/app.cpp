@@ -33,16 +33,19 @@ namespace App
     // per-part transforms are exported (see TODO.md, "Real rig proportions").
     // Aspect ratios (Body 256x512, Head 256x256, Arm/Leg 63x512, Hand 128x128)
     // are the real source PNG dimensions, so sprites at least aren't stretched.
-    static const Vec2 kBodySize(0.7f, 1.4f);
-    static const Vec2 kHeadSize(0.55f, 0.55f);
-    static const Vec2 kHeadLocalOffset(0.0f, 0.75f);
-    static const Vec2 kShoulderOffsetLeft(-0.32f, 0.45f);
-    static const Vec2 kShoulderOffsetRight(0.32f, 0.45f);
-    static const Vec2 kHipOffsetLeft(-0.18f, -0.55f);
-    static const Vec2 kHipOffsetRight(0.18f, -0.55f);
+    // Iteration 2 (rig-proportion pass): reference screenshots show a
+    // proportionally larger, rounder head and a stubbier torso/legs than the
+    // first pass had -- shrunk the body, grew the head, shortened the legs.
+    static const Vec2 kBodySize(0.6f, 1.2f);
+    static const Vec2 kHeadSize(0.62f, 0.62f);
+    static const Vec2 kHeadLocalOffset(0.0f, 0.68f);
+    static const Vec2 kShoulderOffsetLeft(-0.30f, 0.42f);
+    static const Vec2 kShoulderOffsetRight(0.30f, 0.42f);
+    static const Vec2 kHipOffsetLeft(-0.16f, -0.5f);
+    static const Vec2 kHipOffsetRight(0.16f, -0.5f);
     static const float kLimbAspect = 63.0f / 512.0f;
-    static const float kLegLength = 0.8f;
-    static const Vec2 kHandSize(0.24f, 0.24f);
+    static const float kLegLength = 0.6f;
+    static const Vec2 kHandSize(0.18f, 0.18f);
 
     static TextureHandle sTexBody, sTexHead, sTexArm, sTexLeg, sTexHand;
 
