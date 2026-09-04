@@ -72,7 +72,16 @@ namespace App
     static const Vec2 kHandSize(0.22f, 0.22f);
     static const Vec2 kFeetSize(0.20f, 0.20f);
 
-    static TextureHandle sTexBody, sTexHead, sTexArm, sTexLeg, sTexHand, sTexFeet, sTexShoulder, sTexBag;
+    static TextureHandle sTexBody, sTexHead, sTexArm, sTexLeg, sTexHand, sTexFeet, sTexShoulder, sTexBag, sTexCaveBg;
+
+    // cave_bg.png is a whole Unity sprite atlas (multiple rock formations
+    // meant to be sliced into individual sprites via .asset metadata we
+    // don't have easy access to outside the Editor) -- drawn as one big
+    // background tile rather than sliced. Reads fine as a busy rock texture
+    // at this distance/scale; revisit with real per-sprite slicing later if
+    // the seams show. Tiled in a loose grid behind the level, each tile
+    // much bigger than a level cell since the source image itself is large.
+    static const float kBgTileSize = 24.0f;
 
     static unsigned int TintForHand(Player::HandColor c)
     {
@@ -99,6 +108,7 @@ namespace App
         sTexFeet = Render::LoadTexture("feet.png");
         sTexShoulder = Render::LoadTexture("shoulder.png");
         sTexBag = Render::LoadTexture("bag.png");
+        sTexCaveBg = Render::LoadTexture("cave_bg.png");
 
         if (!sLevel.Load(LEVEL_PATH))
         {
@@ -179,7 +189,26 @@ namespace App
 
     void Draw()
     {
-        Render::BeginFrame(sCamera.Position(), sCamera.OrthoSize());
+        Vec2 camPos = sCamera.Position();
+        float orthoSize = sCamera.OrthoSize();
+        Render::BeginFrame(camPos, orthoSize);
+
+        // Cave background, tiled loosely behind everything and following the
+        // camera so it always fills the screen -- replaces the flat navy
+        // clear color with something that actually reads as a cave.
+        float bgRadius = orthoSize * 3.0f + kBgTileSize;
+        int bgMinX = (int)floorf((camPos.x - bgRadius) / kBgTileSize);
+        int bgMaxX = (int)ceilf((camPos.x + bgRadius) / kBgTileSize);
+        int bgMinY = (int)floorf((camPos.y - bgRadius) / kBgTileSize);
+        int bgMaxY = (int)ceilf((camPos.y + bgRadius) / kBgTileSize);
+        for (int ty = bgMinY; ty <= bgMaxY; ty++)
+        {
+            for (int tx = bgMinX; tx <= bgMaxX; tx++)
+            {
+                Vec2 tileCenter((tx + 0.5f) * kBgTileSize, (ty + 0.5f) * kBgTileSize);
+                Render::DrawTexturedQuad(sTexCaveBg, tileCenter, Vec2(kBgTileSize, kBgTileSize), 0.0f, 0xFF555560);
+            }
+        }
 
         // Tile grid (batched per-cell for now; fine at this level's scale --
         // a real static-mesh batch is a later optimization pass).

@@ -93,10 +93,17 @@ Ordered roughly by priority. Rebuild via `build.bat` and screenshot-verify
 (PC) after each meaningful change; keep the PS3 build compiling even where
 it can't be tested on hardware yet.
 
-1. **Background rendering.** Load the Cave art
-   (`Assets/Art/Background/Stylised/Cave/*.png`) and draw it behind the
-   tile grid instead of the flat navy fill. Reference screenshots show
-   large background rock formations plus the foreground climbable tiles.
+1. ~~**Background rendering.**~~ [Done] `cave_bg.png` (copied from
+   `Assets/Art/Background/Stylised/Cave/Cave - BigRocks1.png`) tiled behind
+   the level, following the camera, dark-tinted for depth. Screenshot-
+   verified — reads clearly as a cave, close to reference. Note:
+   `cave_bg.png` is actually a whole Unity sprite atlas (multiple rock
+   formations meant to be sliced via .asset metadata this project doesn't
+   have easy access to outside the Editor), so it's drawn as one big
+   repeating tile rather than properly sliced -- looks fine at this
+   distance/scale but has visible repetition up close. Real per-sprite
+   slicing is a nice-to-have follow-up, not blocking. PS3 side still falls
+   back to a flat tinted quad (texture pipeline stub, see below).
 2. **On-screen UI text.** Reference screenshots show `Current` / `PB` / `WR`
    and a `TROPHIES (Jumps)` panel with Platinum/Gold/Silver/Bronze
    thresholds in medal colors, plus a player name/ID line — this is
