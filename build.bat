@@ -47,6 +47,21 @@ if errorlevel 1 (
 ) else (
     echo.
     echo PS3 build OK -^> crux.ppu.self
+
+    echo.
+    echo ================================================
+    echo  Building Crux - PS3 package ^(.pkg^)
+    echo ================================================
+    rem Must run BEFORE the elf/shaders below are moved out of root --
+    rem make_pkg.ps1 reads them from here.
+    powershell -File "buildscripts\make_pkg.ps1"
+    if errorlevel 1 (
+        echo.
+        echo *** PS3 package build FAILED ^(crux.ppu.self still staged below^) ***
+    ) else (
+        echo PS3 package OK -^> Build\PS3\*.pkg
+    )
+
     if not exist "Build\PS3" mkdir "Build\PS3"
     move /y crux.ppu.self "Build\PS3\" >nul
     move /y crux.ppu.elf "Build\PS3\" >nul
@@ -54,6 +69,7 @@ if errorlevel 1 (
     move /y fs_quad.fpo "Build\PS3\" >nul
     xcopy /y /e /i /q data "Build\PS3\data\" >nul
     copy /y PS3_DEPLOY_README.txt "Build\PS3\README.txt" >nul
+    rd /s /q "buildscripts\pkg_stage" >nul 2>nul
     echo Staged -^> Build\PS3\ ^(no duplicate left in project root^)
 )
 

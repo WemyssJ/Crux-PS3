@@ -47,9 +47,19 @@ namespace App
     // first pass had -- shrunk the body, grew the head, shortened the legs.
     static const Vec2 kBodySize(0.6f, 1.2f);
     static const Vec2 kHeadSize(0.62f, 0.62f);
-    static const Vec2 kHeadLocalOffset(0.0f, 0.68f);
+    // User-corrected: the neck is already part of Body.png's own torso art
+    // (visible at its top edge), not a separate missing piece -- pulling the
+    // head down to 0.56 buried it too low into the torso instead of sitting
+    // on top of the neck that's already there. Raised above the original
+    // 0.68 so the head anchors cleanly on top of the torso's neck.
+    static const Vec2 kHeadLocalOffset(0.0f, 0.76f);
     static const Vec2 kShoulderOffsetLeft(-0.26f, 0.5f);
     static const Vec2 kShoulderOffsetRight(0.26f, 0.5f);
+    static const Vec2 kShoulderCapSize(0.30f, 0.30f);
+    // User-corrected: it's a waist pouch, not a backpack -- moved down from
+    // the upper back (0, 0.1) to waist/belt height, and shrunk to match.
+    static const Vec2 kBagLocalOffset(0.0f, -0.35f);
+    static const Vec2 kBagSize(0.32f, 0.32f);
     static const Vec2 kHipOffsetLeft(-0.16f, -0.5f);
     static const Vec2 kHipOffsetRight(0.16f, -0.5f);
     // Thickness deliberately wider than the raw source PNG ratio (63/512 =
@@ -57,14 +67,12 @@ namespace App
     // correction as the arm reach above.
     static const float kLimbAspect = 0.185f;
     static const float kLegLength = 0.9f;
-    // Matched against a reference gameplay screenshot the user provided
-    // (hands/feet read as small marker dots at the limb tips, not
-    // prominent detailed shapes) -- both shrunk well below the earlier
-    // "2x" pass, which overshot.
-    static const Vec2 kHandSize(0.18f, 0.18f);
-    static const Vec2 kFeetSize(0.16f, 0.16f);
+    // Matched against a reference gameplay screenshot, then nudged back up
+    // slightly (user-reported still wrong after the previous pass).
+    static const Vec2 kHandSize(0.22f, 0.22f);
+    static const Vec2 kFeetSize(0.20f, 0.20f);
 
-    static TextureHandle sTexBody, sTexHead, sTexArm, sTexLeg, sTexHand, sTexFeet;
+    static TextureHandle sTexBody, sTexHead, sTexArm, sTexLeg, sTexHand, sTexFeet, sTexShoulder, sTexBag;
 
     static unsigned int TintForHand(Player::HandColor c)
     {
@@ -89,6 +97,8 @@ namespace App
         sTexLeg = Render::LoadTexture("leg.png");
         sTexHand = Render::LoadTexture("hand.png");
         sTexFeet = Render::LoadTexture("feet.png");
+        sTexShoulder = Render::LoadTexture("shoulder.png");
+        sTexBag = Render::LoadTexture("bag.png");
 
         if (!sLevel.Load(LEVEL_PATH))
         {
@@ -215,9 +225,13 @@ namespace App
         Render::DrawTexturedQuad(sTexFeet, hipL + legDirL + footOffsetL, kFeetSize, legAngleL, 0xFFFFFFFF, true);
         Render::DrawTexturedQuad(sTexFeet, hipR + legDirR + footOffsetR, kFeetSize, legAngleR, 0xFFFFFFFF);
 
-        // Body + head (head keeps its own slightly-lagging rotation, ported from
+        // Body + bag (bag worn on the back, under the head/arms) + head (head
+        // keeps its own slightly-lagging rotation, ported from
         // PlayerController.UpdateHead, while still translating with the body).
         Render::DrawTexturedQuad(sTexBody, bodyPos, kBodySize, bodyRotZ, 0xFFFFFFFF);
+
+        Vec2 bagPos = bodyPos + RotateAround(kBagLocalOffset, Vec2(0, 0), bodyRotZ);
+        Render::DrawTexturedQuad(sTexBag, bagPos, kBagSize, bodyRotZ, 0xFFFFFFFF);
 
         Vec2 headPos = bodyPos + RotateAround(kHeadLocalOffset, Vec2(0, 0), bodyRotZ);
         Render::DrawTexturedQuad(sTexHead, headPos, kHeadSize, sPlayer.HeadRotZ(), 0xFFFFFFFF);
@@ -228,15 +242,30 @@ namespace App
         DrawLimb(sTexArm, shoulderL, sPlayer.HandWorldLeft(), kLimbAspect, 0xFFFFFFFF);
         DrawLimb(sTexArm, shoulderR, sPlayer.HandWorldRight(), kLimbAspect, 0xFFFFFFFF);
 
+        // Shoulder caps drawn after the arms, on top, to cover the arm/body
+        // seam. Shoulder.png is a dome (rounded top, flat bottom as authored)
+        // -- user-corrected orientation: rounded edge should face the body,
+        // flat edge should sit along the arm, so rotate its "up" (rounded
+        // side) to point from hand back toward the shoulder, same AngleAlong
+        // convention DrawLimb uses. Shading isn't symmetric, so left mirrors.
+        float shoulderCapAngleL = AngleAlong(shoulderL - sPlayer.HandWorldLeft());
+        float shoulderCapAngleR = AngleAlong(shoulderR - sPlayer.HandWorldRight());
+        Render::DrawTexturedQuad(sTexShoulder, shoulderL, kShoulderCapSize, shoulderCapAngleL, 0xFFFFFFFF, true);
+        Render::DrawTexturedQuad(sTexShoulder, shoulderR, kShoulderCapSize, shoulderCapAngleR, 0xFFFFFFFF);
+
         // Hands, tinted by grip state (ported from PlayerController.SetHandsColor).
-        // User-reported (latest): both hands need mirroring from the previous
-        // state (left unflipped/right flipped) -- both now flipped.
-        // Hand.png's wrist/cuff sits toward the bottom of the image (fingers
-        // spread upward), roughly horizontally centered -- so this offset
-        // needs no left/right sign flip like the foot one does.
-        Vec2 handOffset = RotateAround(Vec2(0.0f, -kHandSize.y * 0.35f), Vec2(0, 0), bodyRotZ);
-        Render::DrawTexturedQuad(sTexHand, sPlayer.HandWorldLeft() + handOffset, kHandSize, bodyRotZ, TintForHand(sPlayer.LeftHandColor()), true);
-        Render::DrawTexturedQuad(sTexHand, sPlayer.HandWorldRight() + handOffset, kHandSize, bodyRotZ, TintForHand(sPlayer.RightHandColor()), true);
+        // Fixed: the wrist-ward offset was pulling straight "down" in body
+        // space regardless of the arm's actual direction -- but since both
+        // the shoulder and hand-grip anchors are fixed local offsets from
+        // body, the arm's direction relative to body is itself a constant,
+        // not vertical. Pull back along that real direction instead.
+        // Mirror: only the left hand needs it (right uses Hand.png as-authored).
+        Vec2 armDirLocalL = (kHandOffsetLeft - kShoulderOffsetLeft).normalized();
+        Vec2 armDirLocalR = (kHandOffsetRight - kShoulderOffsetRight).normalized();
+        Vec2 handOffsetL = RotateAround(armDirLocalL * (-kHandSize.y * 0.35f), Vec2(0, 0), bodyRotZ);
+        Vec2 handOffsetR = RotateAround(armDirLocalR * (-kHandSize.y * 0.35f), Vec2(0, 0), bodyRotZ);
+        Render::DrawTexturedQuad(sTexHand, sPlayer.HandWorldLeft() + handOffsetL, kHandSize, bodyRotZ, TintForHand(sPlayer.LeftHandColor()), true);
+        Render::DrawTexturedQuad(sTexHand, sPlayer.HandWorldRight() + handOffsetR, kHandSize, bodyRotZ, TintForHand(sPlayer.RightHandColor()));
 
         Render::EndFrame();
     }

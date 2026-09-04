@@ -1,6 +1,7 @@
 objs/
 build_pc/
 Build/
+buildscripts/pkg_stage/
 *.o
 *.d
 *.self
@@ -9,3 +10,5 @@ Build/
 *.fpo
 *.exe
 *.dll
+*.pkg
+PARAM.SFO
