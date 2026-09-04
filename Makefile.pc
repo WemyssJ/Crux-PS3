@@ -1,0 +1,38 @@
+# Desktop preview build -- shares all gameplay source with the PS3 build
+# (src/level.cpp, player.cpp, camera2d.cpp, score.cpp, app.cpp); only
+# input_pc.cpp / render_pc.cpp / main_pc.cpp are PC-specific.
+#
+# Build with MSYS2's mingw64 toolchain:
+#   "/c/msys64/usr/bin/bash.exe" -lc 'export PATH=/mingw64/bin:$PATH; cd "/d/ClaudeCode/Crux PS3"; make -f Makefile.pc'
+
+CXX = g++
+CXXFLAGS = -std=c++11 -O2 -Wall -DCRUX_PC `sdl2-config --cflags`
+LDFLAGS = `sdl2-config --libs` -lSDL2_image
+
+SRCS = src/main_pc.cpp src/input_pc.cpp src/render_pc.cpp src/app.cpp src/level.cpp src/player.cpp src/camera2d.cpp src/score.cpp
+OBJDIR = build_pc
+OBJS = $(patsubst src/%.cpp,$(OBJDIR)/%.o,$(SRCS))
+
+TARGET = crux_pc.exe
+
+all: $(TARGET)
+
+$(OBJDIR)/%.o: src/%.cpp | $(OBJDIR)
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+$(OBJDIR):
+	mkdir -p $(OBJDIR)
+
+$(TARGET): $(OBJS)
+	$(CXX) $(OBJS) -o $(TARGET) $(LDFLAGS)
+	@# Ship SDL2.dll alongside the exe so it runs standalone from Explorer,
+	@# not just from inside an MSYS2 shell that has /mingw64/bin on PATH.
+	@# SDL2_image pulls in a long chain of codec DLLs (libpng, libjpeg, libwebp,
+	@# libavif, etc.) -- copying the lot is simpler and more robust than hand-
+	@# tracking which ones are actually needed via `ldd`.
+	cp -u /mingw64/bin/*.dll .
+
+clean:
+	rm -rf $(OBJDIR) $(TARGET) *.dll
+
+.PHONY: all clean

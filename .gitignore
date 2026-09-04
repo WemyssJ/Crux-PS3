@@ -1,0 +1,11 @@
+objs/
+build_pc/
+Build/
+*.o
+*.d
+*.self
+*.elf
+*.vpo
+*.fpo
+*.exe
+*.dll
