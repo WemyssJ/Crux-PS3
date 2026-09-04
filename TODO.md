@@ -7,7 +7,10 @@ using the real Sony PS3 SDK at `D:\PS3`. See also the original plan at
 and rationale (why this is a native rewrite, not a Unity export).
 
 Build both targets any time with `build.bat` (stages to `Build\PC\` and
-`Build\PS3\`).
+`Build\PS3\`, including a runnable installable `.pkg` for PS3 — see below).
+Nothing but source should live outside `Build\`/`buildscripts\pkg_stage\`
+after a build — if you see a stray `.exe`/`.self`/`.dll`/`.pkg` sitting in
+the project root, that's a bug, not intended.
 
 ## Done
 
@@ -21,12 +24,68 @@ Build both targets any time with `build.bat` (stages to `Build\PC\` and
       (`src/score.cpp`) — **local-only**, no PlayFab (per project scope).
 - [x] Leg flap, head bob, and hand-color grip-state animation ported from
       `PlayerController.cs`'s `UpdateLegs`/`UpdateHead`/`UpdateHandColors`.
-- [x] Real player sprite art wired in (`data/sprites/*.png`, copied from
-      `Assets/Art/Player`) — PC-verified by screenshot, looks recognizably
-      like Crux. PS3 side compiles but falls back to flat colored quads
-      (see "PS3 texture pipeline" below).
-- [x] `build.bat` builds both targets and stages runnable copies into
-      `Build\PC\` and `Build\PS3\` (with `PS3_DEPLOY_README.txt`).
+- [x] Full rig wired up with real sprite art (`data/sprites/*.png`): body,
+      head, arms, legs, hands, feet, shoulder caps, waist bag. Iterated
+      against multiple user-provided reference screenshots — proportions,
+      V-shaped arm reach, hand/foot mirroring, wrist/heel anchor points,
+      shoulder cap orientation, neck join, and bag placement all
+      screenshot-verified and corrected at least once each. See git log
+      for the individual correction commits if a specific constant's
+      history matters. PS3 side compiles but still falls back to flat
+      colored quads for all of this (see "PS3 texture pipeline" below).
+- [x] **Flip mirroring wired up** — `Player::IsFlipped()` existed but
+      `app.cpp` never used it. Best-effort interpretation (documented
+      inline in `app.cpp` and below under "Open questions"): the
+      original's `FlipAroundCurrentHandPivot` does a 3D rotate-around-the-
+      arm-axis that has no direct 2D equivalent and, under our fixed-
+      offset pivot model, collapses to a physics no-op (see the comment in
+      `player.h`/`player.cpp`'s `TryFlip`); its only concretely-documented
+      visual effect (`FlipHands()`) mirrors the two hand sprites, so that's
+      what's implemented — `isFlipped` swaps which hand/foot gets the
+      horizontal-mirror flag. **Not yet interactively playtested** (needs
+      a live keypress at the right moment mid-swing, not just a screenshot)
+      — flag for the user to confirm this reads right.
+- [x] **PS3 `.pkg` packaging pipeline** — builds a genuine installable
+      package via the real Sony tools (`make_fself_npdrm`,
+      `make_package_npdrm`), not just a debug `.self`:
+      - `buildscripts/make_param_sfo.ps1` generates PARAM.SFO by hand (the
+        SDK ships no scriptable tool for this — `ps3sys.exe` is a GUI-only
+        submission tool).
+      - `buildscripts/make_pkg.ps1` stages `USRDIR/` (signed `EBOOT.BIN` +
+        game data), generates `PARAM.SFO`/copies `ICON0.PNG`, and calls
+        `make_package_npdrm`.
+      - `build.bat`'s PS3 stage now runs this automatically, producing
+        `Build\PS3\UP0001-CRUX00001_00-CRUXPS3PORT00001.pkg`.
+      - `packaging/package.conf` and `packaging/ICON0.PNG` are placeholder
+        homebrew values (not a real Sony-registered title) — see "Open
+        questions" below on whether the user wants different branding.
+      - **Not yet install-tested** (needs the devkit powered on).
+- [x] Fixed a real bug: a `build\` scripts folder and the `Build\` output
+      folder are the *same directory* on a case-insensitive filesystem.
+      Scripts now live in `buildscripts\` instead.
+- [x] Replaced the small flat placeholder test room with a tall vertical
+      climbing shaft (`LevelData::LoadPlaceholderTestRoom` in `level.cpp`,
+      ~48 units tall) with staggered ledges whose gaps widen with height,
+      so both swing-only and flight-jump traversal get exercised, and so
+      the camera's flight-follow/zoom path (which only activates after
+      >1s of sustained flight) actually has room to trigger.
+- [x] `build.bat` builds all targets and stages runnable copies into
+      `Build\PC\` and `Build\PS3\`, with zero leftover artifacts in the
+      project root (verified — `move`, not `copy`, for every build output).
+      A launcher copy also lives at `Build\build.bat` for discoverability.
+
+## Open questions for the user (don't block on these — keep working, just flag)
+
+- **Flip visual read.** Does the hand/foot-mirror-swap approximation for
+  `isFlipped` actually look right in motion? This needs live play (press
+  the flip key mid-swing), not a screenshot — genuinely can't verify
+  further without a human at the keyboard or a way to script input timing.
+- **Package branding.** `packaging/package.conf`'s `Content_ID` and
+  `packaging/ICON0.PNG` (currently a crop of `head.png`) are placeholders.
+  Real title art/ID is a user call, not something to guess further.
+- **Rig proportions in motion.** Everything's been checked at-rest or in a
+  landing pose; mid-swing/flying/both-hands-attached poses haven't had
+  dedicated screenshot passes.
 
 ## Next — can make real progress on these without the user
 
@@ -34,29 +93,11 @@ Ordered roughly by priority. Rebuild via `build.bat` and screenshot-verify
 (PC) after each meaningful change; keep the PS3 build compiling even where
 it can't be tested on hardware yet.
 
-1. **Rig proportions.** [Iterating] Pass 1: too-small head, over-long torso
-   -- fixed (bigger head, more compact body/legs). Pass 2 (user-reported):
-   arms weren't V-shaped (shoulder and hand-grip anchors were almost the
-   same point, so arms rendered as short stubs) and legs had no feet, just
-   a bare trouser sprite -- fixed by pulling the hand-grip anchor
-   (`kHandOffsetLeft/Right` in app.cpp) wide and high, and adding
-   `feet.png` at each leg's end. Screenshot-verified, now a close match to
-   the reference "landing" pose. Note: the hand-grip anchor also doubles
-   as the swing physics pivot, so this changed swing radius/feel too, not
-   just the visual -- worth re-checking gameplay feel, not just looks.
-   Pass 3 (user-reported): arms/legs still ~50% too small overall (length
-   and thickness) -- scaled reach anchor and leg length 1.5x, and widened
-   the limb aspect ratio beyond the raw source PNG ratio (63/512 -> 0.185)
-   for a chunkier look. Screenshot-verified, clear improvement.
-   Pass 4 (user-reported): hands/feet also too small -- doubled kHandSize
-   and kFeetSize. Screenshot-verified, both now clearly visible/readable.
-   Still to check: proportions across more poses (mid-swing at speed,
-   flying, both-hands-attached, flipped) -- only checked at-rest so far.
-2. **Background rendering.** Load the Cave art
+1. **Background rendering.** Load the Cave art
    (`Assets/Art/Background/Stylised/Cave/*.png`) and draw it behind the
    tile grid instead of the flat navy fill. Reference screenshots show
    large background rock formations plus the foreground climbable tiles.
-3. **On-screen UI text.** Reference screenshots show `Current` / `PB` / `WR`
+2. **On-screen UI text.** Reference screenshots show `Current` / `PB` / `WR`
    and a `TROPHIES (Jumps)` panel with Platinum/Gold/Silver/Bronze
    thresholds in medal colors, plus a player name/ID line — this is
    `HighscoreManager.cs` + `ScoreManager.cs`'s UI, minus the PlayFab parts
@@ -64,16 +105,16 @@ it can't be tested on hardware yet.
    path: SDL2_ttf is the easy route on PC; PS3 already has `cellDbgFontDrawGcm`
    wired via gcmutil's `onDbgfont` (see `main_ps3.cpp`) which can host the
    same info cheaply there.
-4. **7 levels.** Only `data/level1.lvl` (via the placeholder test room) is
-   wired up right now. Build 6 more distinct placeholder rooms (varied
-   layout/difficulty) so the level-select/progression structure exists
-   end-to-end, and swap in `LevelReset.cs`/`LevelEnd.cs`-equivalent flow
-   between them. Swap for real exported data once available (see below).
-5. **PB persistence.** `ScoreTracker` currently keeps personal-bests in
+3. **More climbing levels.** Only one placeholder level exists (the tall
+   shaft above). Build a few more distinct ones (varied layout/difficulty)
+   so the level-select/progression structure exists end-to-end, and wire a
+   `LevelReset.cs`/`LevelEnd.cs`-equivalent flow between them. Swap for
+   real exported data once available (see "Blocked on the user").
+4. **PB persistence.** `ScoreTracker` currently keeps personal-bests in
    memory only (resets on relaunch) — see the TODO comment in `score.cpp`.
    Wire real persistence: a simple local file on PC (fully testable now);
    `cellSaveData` on PS3 (compiles, but can't be verified without hardware).
-6. **PS3 texture pipeline.** `Render::LoadTexture`/`DrawTexturedQuad` in
+5. **PS3 texture pipeline.** `Render::LoadTexture`/`DrawTexturedQuad` in
    `render_ps3.cpp` are stubs (see the TODO comment there) — falls back to
    flat-colored quads. Needs: PNG→DDS conversion (check for a usable
    converter; `D:\PS3\host-win32\bin\dds2gtf.exe` takes DDS, not PNG, so
@@ -82,7 +123,7 @@ it can't be tested on hardware yet.
    texture sampler — current shaders are vertex-color-only). This is the
    biggest remaining engineering chunk and the main thing standing between
    the PS3 build and looking like the PC build.
-7. Re-run `build.bat` after each step above; keep both targets green.
+6. Re-run `build.bat` after each step above; keep both targets green.
 
 ## Blocked on the user — can't proceed without you
 
@@ -92,13 +133,13 @@ it can't be tested on hardware yet.
   because Unity's batch-mode license check needs an activated `.ulf` this
   machine doesn't have (it's a normal Hub-login license). Once exported
   (`data/level1.lvl` … `level7.lvl`, `data/player_rig.txt`), swap the
-  placeholder level/rig constants in `app.cpp` for the real thing.
+  placeholder level/rig constants in `app.cpp` for the real thing — this
+  would also resolve a lot of the remaining rig-proportion guesswork.
 - **On-hardware testing.** The DECHJ00A is powered off. `Build\PS3\` is
   staged and ready (see `PS3_DEPLOY_README.txt`) for whenever it's back on
-  — either via Target Manager (target "PS3 Test", 10.1.1.2) or by copying
-  the folder over directly.
-- **Installable `.pkg` polish** (icon art, title metadata) — can scaffold
-  the packaging mechanics, but final call on branding/title is the user's.
+  — either via Target Manager (target "PS3 Test", 10.1.1.2), copying the
+  folder over directly, or installing the `.pkg` (untested either way).
+- **Package branding** (icon art, title metadata) — see "Open questions."
 
 ## Backlog / explicitly out of scope
 

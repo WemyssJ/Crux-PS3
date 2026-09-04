@@ -199,6 +199,17 @@ namespace App
         Vec2 bodyPos = sPlayer.BodyPos();
         float bodyRotZ = sPlayer.BodyRotZ();
 
+        // isFlipped (ported from PlayerController's flip mechanic -- see
+        // Player::TryFlip's comment on why the original's 3D rotate-around-
+        // the-arm-axis math collapses to a no-op physics-wise under our
+        // fixed-offset pivot model). The original's only *visible* effect
+        // was FlipHands() mirroring the two hand sprites' local scale.x; the
+        // rest of the visual "flip" came from the 3D rotation itself, which
+        // has no direct 2D equivalent here. Best-effort interpretation:
+        // swap which hand/foot gets the mirror. Flagged for the user to
+        // confirm this reads right once they're back -- see TODO.md.
+        bool flip = sPlayer.IsFlipped();
+
         Vec2 shoulderL = bodyPos + RotateAround(kShoulderOffsetLeft, Vec2(0, 0), bodyRotZ);
         Vec2 shoulderR = bodyPos + RotateAround(kShoulderOffsetRight, Vec2(0, 0), bodyRotZ);
         Vec2 hipL = bodyPos + RotateAround(kHipOffsetLeft, Vec2(0, 0), bodyRotZ);
@@ -222,8 +233,8 @@ namespace App
         float legAngleR = bodyRotZ + sPlayer.LegAngleRight();
         Vec2 footOffsetL = RotateAround(Vec2(kFeetSize.x * 0.28f, kFeetSize.y * 0.18f), Vec2(0, 0), legAngleL);
         Vec2 footOffsetR = RotateAround(Vec2(-kFeetSize.x * 0.28f, kFeetSize.y * 0.18f), Vec2(0, 0), legAngleR);
-        Render::DrawTexturedQuad(sTexFeet, hipL + legDirL + footOffsetL, kFeetSize, legAngleL, 0xFFFFFFFF, true);
-        Render::DrawTexturedQuad(sTexFeet, hipR + legDirR + footOffsetR, kFeetSize, legAngleR, 0xFFFFFFFF);
+        Render::DrawTexturedQuad(sTexFeet, hipL + legDirL + footOffsetL, kFeetSize, legAngleL, 0xFFFFFFFF, !flip);
+        Render::DrawTexturedQuad(sTexFeet, hipR + legDirR + footOffsetR, kFeetSize, legAngleR, 0xFFFFFFFF, flip);
 
         // Body + bag (bag worn on the back, under the head/arms) + head (head
         // keeps its own slightly-lagging rotation, ported from
@@ -264,8 +275,8 @@ namespace App
         Vec2 armDirLocalR = (kHandOffsetRight - kShoulderOffsetRight).normalized();
         Vec2 handOffsetL = RotateAround(armDirLocalL * (-kHandSize.y * 0.35f), Vec2(0, 0), bodyRotZ);
         Vec2 handOffsetR = RotateAround(armDirLocalR * (-kHandSize.y * 0.35f), Vec2(0, 0), bodyRotZ);
-        Render::DrawTexturedQuad(sTexHand, sPlayer.HandWorldLeft() + handOffsetL, kHandSize, bodyRotZ, TintForHand(sPlayer.LeftHandColor()), true);
-        Render::DrawTexturedQuad(sTexHand, sPlayer.HandWorldRight() + handOffsetR, kHandSize, bodyRotZ, TintForHand(sPlayer.RightHandColor()));
+        Render::DrawTexturedQuad(sTexHand, sPlayer.HandWorldLeft() + handOffsetL, kHandSize, bodyRotZ, TintForHand(sPlayer.LeftHandColor()), !flip);
+        Render::DrawTexturedQuad(sTexHand, sPlayer.HandWorldRight() + handOffsetR, kHandSize, bodyRotZ, TintForHand(sPlayer.RightHandColor()), flip);
 
         Render::EndFrame();
     }

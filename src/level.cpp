@@ -98,42 +98,61 @@ void LevelData::LoadPlaceholderTestRoom()
 {
     Unload();
 
+    // A tall vertical climbing shaft (not just a small flat room) so the
+    // camera's flight-follow/zoom behavior (CameraController.cs's
+    // flightCamActive path, ported in camera2d.cpp) actually gets exercised
+    // -- that logic only kicks in after >1s of sustained flight, which a
+    // small room never gives room for.
     m_cellSize = Vec2(1.0f, 1.0f);
     m_origin = Vec2(0.0f, 0.0f);
-    m_boundsMinX = -10; m_boundsMinY = -1;
-    m_boundsMaxX = 10; m_boundsMaxY = 12;
+    m_boundsMinX = -8; m_boundsMinY = -3;
+    m_boundsMaxX = 8; m_boundsMaxY = 46;
     m_width = m_boundsMaxX - m_boundsMinX;
     m_height = m_boundsMaxY - m_boundsMinY;
     m_cells = (bool *)malloc(sizeof(bool) * m_width * m_height);
     memset(m_cells, 0, sizeof(bool) * m_width * m_height);
 
     for (int cx = m_boundsMinX; cx < m_boundsMaxX; cx++)
-    {
-        int lx = cx - m_boundsMinX;
-        m_cells[lx + (0 - m_boundsMinY) * m_width] = true; // floor
-    }
-    // Left/right walls with occasional grip ledges poking in.
-    for (int cy = 1; cy < 11; cy++)
+        m_cells[(cx - m_boundsMinX) + (0 - m_boundsMinY) * m_width] = true; // floor
+
+    // Full-height side walls, plus staggered ledges poking inward that
+    // alternate left/right as you climb -- gaps between them widen with
+    // height so the lower shaft is swing-only and the upper shaft forces
+    // flight jumps between ledges (exercising both movement modes and the
+    // flight camera).
+    for (int cy = 1; cy < m_boundsMaxY - 1; cy++)
     {
         int ly = cy - m_boundsMinY;
         m_cells[(m_boundsMinX - m_boundsMinX) + ly * m_width] = true;
         m_cells[(m_boundsMaxX - 1 - m_boundsMinX) + ly * m_width] = true;
-        if (cy % 3 == 0)
+
+        int rung = cy % 6 < 3 ? cy % 6 : -1; // ledge every 3 rows within each 6-row band
+        if (rung == 0 || rung == 3)
         {
-            m_cells[(m_boundsMinX + 3 - m_boundsMinX) + ly * m_width] = true;
-            m_cells[(m_boundsMaxX - 4 - m_boundsMinX) + ly * m_width] = true;
+            bool fromLeft = ((cy / 6) % 2) == 0;
+            int reach = 3 + (cy / 10); // ledges reach further in higher up -> bigger gap to cross
+            if (fromLeft)
+            {
+                for (int i = 1; i <= reach; i++)
+                    m_cells[(m_boundsMinX + i - m_boundsMinX) + ly * m_width] = true;
+            }
+            else
+            {
+                for (int i = 1; i <= reach; i++)
+                    m_cells[(m_boundsMaxX - 1 - i - m_boundsMinX) + ly * m_width] = true;
+            }
         }
     }
 
     m_playerStart = Vec2(0.0f, 2.0f);
 
     m_endTriggerCount = 1;
-    m_endTriggers[0].center = Vec2(0.0f, 10.5f);
-    m_endTriggers[0].size = Vec2(2.0f, 1.0f);
+    m_endTriggers[0].center = Vec2(0.0f, (float)(m_boundsMaxY - 2));
+    m_endTriggers[0].size = Vec2((float)m_width, 1.0f);
 
     m_resetTriggerCount = 1;
-    m_resetTriggers[0].center = Vec2(0.0f, -2.0f);
-    m_resetTriggers[0].size = Vec2(20.0f, 1.0f);
+    m_resetTriggers[0].center = Vec2(0.0f, (float)(m_boundsMinY + 0.5f));
+    m_resetTriggers[0].size = Vec2((float)m_width, 1.0f);
 }
 
 bool LevelData::HasWallAtCell(int cx, int cy) const
