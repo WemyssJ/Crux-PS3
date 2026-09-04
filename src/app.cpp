@@ -216,8 +216,11 @@ namespace App
         DrawLimb(sTexArm, shoulderR, sPlayer.HandWorldRight(), kLimbAspect, 0xFFFFFFFF);
 
         // Hands, tinted by grip state (ported from PlayerController.SetHandsColor).
-        Render::DrawTexturedQuad(sTexHand, sPlayer.HandWorldLeft(), kHandSize, bodyRotZ, TintForHand(sPlayer.LeftHandColor()), true);
-        Render::DrawTexturedQuad(sTexHand, sPlayer.HandWorldRight(), kHandSize, bodyRotZ, TintForHand(sPlayer.RightHandColor()));
+        // User-reported: previous flip assignment had both hands backwards --
+        // Hand.png reads naturally as a LEFT hand, so it's the right hand that
+        // needs mirroring, not the left.
+        Render::DrawTexturedQuad(sTexHand, sPlayer.HandWorldLeft(), kHandSize, bodyRotZ, TintForHand(sPlayer.LeftHandColor()));
+        Render::DrawTexturedQuad(sTexHand, sPlayer.HandWorldRight(), kHandSize, bodyRotZ, TintForHand(sPlayer.RightHandColor()), true);
 
         Render::EndFrame();
     }
