@@ -197,7 +197,9 @@ namespace App
         Vec2 legDirR = RotateAround(Vec2(0, -kLegLength), Vec2(0, 0), bodyRotZ + sPlayer.LegAngleRight());
         DrawLimb(sTexLeg, hipL, hipL + legDirL, kLimbAspect, 0xFFFFFFFF);
         DrawLimb(sTexLeg, hipR, hipR + legDirR, kLimbAspect, 0xFFFFFFFF);
-        Render::DrawTexturedQuad(sTexFeet, hipL + legDirL, kFeetSize, bodyRotZ + sPlayer.LegAngleLeft(), 0xFFFFFFFF);
+        // Hand.png/Feet.png are authored facing one direction (not symmetric),
+        // so the left side needs a horizontal mirror to match visually.
+        Render::DrawTexturedQuad(sTexFeet, hipL + legDirL, kFeetSize, bodyRotZ + sPlayer.LegAngleLeft(), 0xFFFFFFFF, true);
         Render::DrawTexturedQuad(sTexFeet, hipR + legDirR, kFeetSize, bodyRotZ + sPlayer.LegAngleRight(), 0xFFFFFFFF);
 
         // Body + head (head keeps its own slightly-lagging rotation, ported from
@@ -214,7 +216,7 @@ namespace App
         DrawLimb(sTexArm, shoulderR, sPlayer.HandWorldRight(), kLimbAspect, 0xFFFFFFFF);
 
         // Hands, tinted by grip state (ported from PlayerController.SetHandsColor).
-        Render::DrawTexturedQuad(sTexHand, sPlayer.HandWorldLeft(), kHandSize, bodyRotZ, TintForHand(sPlayer.LeftHandColor()));
+        Render::DrawTexturedQuad(sTexHand, sPlayer.HandWorldLeft(), kHandSize, bodyRotZ, TintForHand(sPlayer.LeftHandColor()), true);
         Render::DrawTexturedQuad(sTexHand, sPlayer.HandWorldRight(), kHandSize, bodyRotZ, TintForHand(sPlayer.RightHandColor()));
 
         Render::EndFrame();

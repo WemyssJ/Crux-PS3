@@ -24,8 +24,10 @@ namespace Render
     // Unity's Camera.orthographicSize).
     void BeginFrame(Vec2 camPos, float orthoHalfHeight);
     void DrawQuad(Vec2 center, Vec2 size, float rotationDeg, unsigned int argb);
-    // tintArgb 0xFFFFFFFF = no tint (draw the texture as-is).
-    void DrawTexturedQuad(TextureHandle tex, Vec2 center, Vec2 size, float rotationDeg, unsigned int tintArgb);
+    // tintArgb 0xFFFFFFFF = no tint (draw the texture as-is). flipX mirrors
+    // the source texture horizontally before rotating (for left/right pairs
+    // like hands/feet that share one sprite authored facing one direction).
+    void DrawTexturedQuad(TextureHandle tex, Vec2 center, Vec2 size, float rotationDeg, unsigned int tintArgb, bool flipX = false);
     void EndFrame();
 
     // True once the app should exit (PC: window close / ESC; PS3: sysutil quit).

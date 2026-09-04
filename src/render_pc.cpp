@@ -117,7 +117,7 @@ namespace Render
         SDL_RenderCopyEx(sRenderer, sWhite, NULL, &dst, -rotationDeg, NULL, SDL_FLIP_NONE);
     }
 
-    void DrawTexturedQuad(TextureHandle tex, Vec2 center, Vec2 size, float rotationDeg, unsigned int tintArgb)
+    void DrawTexturedQuad(TextureHandle tex, Vec2 center, Vec2 size, float rotationDeg, unsigned int tintArgb, bool flipX)
     {
         if (tex == 0 || tex > sTextureCount || !sTextures[tex - 1])
         {
@@ -135,7 +135,7 @@ namespace Render
         SDL_SetTextureColorMod(t, r, g, b);
         SDL_SetTextureAlphaMod(t, a);
 
-        SDL_RenderCopyEx(sRenderer, t, NULL, &dst, -rotationDeg, NULL, SDL_FLIP_NONE);
+        SDL_RenderCopyEx(sRenderer, t, NULL, &dst, -rotationDeg, NULL, flipX ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE);
     }
 
     void EndFrame()

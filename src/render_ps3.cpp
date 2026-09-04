@@ -180,8 +180,10 @@ namespace Render
         return 0;
     }
 
-    void DrawTexturedQuad(TextureHandle /*tex*/, Vec2 center, Vec2 size, float rotationDeg, unsigned int tintArgb)
+    void DrawTexturedQuad(TextureHandle /*tex*/, Vec2 center, Vec2 size, float rotationDeg, unsigned int tintArgb, bool /*flipX*/)
     {
+        // flipX has no effect on a flat-colored quad; will matter once real
+        // textures are wired up (see LoadTexture's TODO above).
         DrawQuad(center, size, rotationDeg, tintArgb);
     }
 
