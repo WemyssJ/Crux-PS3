@@ -59,20 +59,22 @@ public:
     bool CellOccupied(int localX, int localY) const; // 0-based grid index, for rendering
     Vec2 PlayerStart() const { return m_playerStart; }
 
+    // Marks the cell containing worldPos solid -- a no-op if it's already
+    // solid or worldPos falls outside the level's bounds. Used by
+    // App::LoadLevelByIndex right after Player::Reset() to guarantee the
+    // player's assumed initial grip (Player::HandWorldLeft(), computed from
+    // fixed rig offsets, not validated against real wall data on its own)
+    // actually lands on real solid ground -- real exported levels can have
+    // their nearest natural grip point several units from PLAYERSTART, and
+    // without this the player starts "gripped" to nothing, which both looks
+    // wrong and can cascade into spuriously entering the fall/fly state
+    // right at spawn.
+    void EnsureCellSolidAt(Vec2 worldPos);
+
 private:
     void LoadPlaceholderShaft();   // level 0: tall vertical shaft, staggered ledges
     void LoadPlaceholderCavern();  // level 1: wide, scattered floating platforms
     void LoadPlaceholderChimney(); // level 2: narrow shaft, frequent swings, little room to fly
-
-    // Real exported levels can legitimately have their nearest grip point
-    // several units from PLAYERSTART (an intentional short fall/flight
-    // opening), but that can also leave nothing reachable at all right at
-    // spawn. Guarantees at least one solid cell within arm's-length of
-    // PlayerStart() so there's always an immediate, no-flight-required
-    // first grab; a no-op if one already exists nearby. Called at the end
-    // of Load() only (the hand-authored placeholders are already designed
-    // to be climbable from the start).
-    void EnsureStartIsClimbable();
 
     Vec2 m_cellSize;
     Vec2 m_origin;

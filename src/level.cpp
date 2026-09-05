@@ -92,47 +92,22 @@ bool LevelData::Load(const char *path)
     }
 
     fclose(f);
-    EnsureStartIsClimbable();
     return true;
 }
 
-// See level.h's comment on why this exists. kReach is deliberately generous
-// -- comfortably covers app.cpp's kHandOffsetLeft/Right magnitudes (the
-// hand's reach from the body during a swing), so if there's already
-// anything grabbable nearby this is a no-op.
-void LevelData::EnsureStartIsClimbable()
+// See level.h's comment on why this exists. Marks the cell containing
+// worldPos solid, a no-op if it's already solid or out of bounds (the
+// latter shouldn't happen for its actual call site -- a point near
+// PlayerStart(), always well inside the exported BOUNDS).
+void LevelData::EnsureCellSolidAt(Vec2 worldPos)
 {
     if (!m_cells || m_width <= 0 || m_height <= 0) return;
 
-    const float kReach = 1.8f;
-    int reachCellsX = (int)ceilf(kReach / m_cellSize.x) + 1;
-    int reachCellsY = (int)ceilf(kReach / m_cellSize.y) + 1;
-    int startCx = (int)floorf((m_playerStart.x - m_origin.x) / m_cellSize.x);
-    int startCy = (int)floorf((m_playerStart.y - m_origin.y) / m_cellSize.y);
-
-    for (int dy = -reachCellsY; dy <= reachCellsY; dy++)
-    {
-        for (int dx = -reachCellsX; dx <= reachCellsX; dx++)
-        {
-            int cx = startCx + dx, cy = startCy + dy;
-            int lx = cx - m_boundsMinX, ly = cy - m_boundsMinY;
-            if (lx < 0 || lx >= m_width || ly < 0 || ly >= m_height) continue;
-            if (!m_cells[lx + ly * m_width]) continue;
-
-            float wx = m_origin.x + (cx + 0.5f) * m_cellSize.x;
-            float wy = m_origin.y + (cy + 0.5f) * m_cellSize.y;
-            float ddx = wx - m_playerStart.x, ddy = wy - m_playerStart.y;
-            if (ddx * ddx + ddy * ddy <= kReach * kReach)
-                return; // already something grabbable nearby
-        }
-    }
-
-    // Nothing in reach -- synthesize one cell directly above the start,
-    // well within kReach but clear of the player's own start position.
-    int cy = startCy + (int)(kReach * 0.6f / m_cellSize.y) + 1;
-    int lx = startCx - m_boundsMinX, ly = cy - m_boundsMinY;
-    if (lx >= 0 && lx < m_width && ly >= 0 && ly < m_height)
-        m_cells[lx + ly * m_width] = true;
+    int cx = (int)floorf((worldPos.x - m_origin.x) / m_cellSize.x);
+    int cy = (int)floorf((worldPos.y - m_origin.y) / m_cellSize.y);
+    int lx = cx - m_boundsMinX, ly = cy - m_boundsMinY;
+    if (lx < 0 || lx >= m_width || ly < 0 || ly >= m_height) return;
+    m_cells[lx + ly * m_width] = true;
 }
 
 void LevelData::LoadPlaceholderLevel(int index)

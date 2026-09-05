@@ -100,6 +100,14 @@ namespace App
         }
 
         sPlayer.Reset(sLevel.PlayerStart());
+        // Reset() always grabs with the left hand at bodyRotZ=0, computed
+        // from a fixed rig offset -- never validated against real wall
+        // data. Real exported levels can have their nearest natural grip
+        // several units from PLAYERSTART, so without this the player can
+        // start "gripped" to empty air (looks wrong, and can cascade into
+        // spuriously entering the fall/fly state right at spawn).
+        if (!sLevel.CircleOverlapsWall(sPlayer.HandWorldLeft(), sPlayer.HandGripRadius()))
+            sLevel.EnsureCellSolidAt(sPlayer.HandWorldLeft());
         sCamera.Reset(sLevel.PlayerStart());
         if (Save::HasBest(index))
             sScore.SetPersonalBest(Save::GetBest(index));
@@ -154,6 +162,15 @@ namespace App
     static const Vec2 kShoulderOffsetLeft(-0.32f, 0.5f);
     static const Vec2 kShoulderOffsetRight(0.32f, 0.5f);
     static const Vec2 kShoulderCapSize(0.30f, 0.30f);
+    // Physics-only shoulder-grip position for Player::TryFlip's flip-axis
+    // math -- NOT the same as kShoulderOffsetLeft/Right above, which is a
+    // tuned-by-eye cosmetic anchor for the shoulder-cap SPRITE. This is
+    // Shoulder_Grip's real position straight from player_rig.txt (it sits
+    // at Arm's own local origin, i.e. exactly Arm_(L)/Arm_(R)'s own local
+    // pos with zero further offset), scaled by the same 0.6 Unity-relative
+    // unit factor used for kHandOffsetLeft/Right.
+    static const Vec2 kShoulderGripLeft(-0.27f, 0.435f);
+    static const Vec2 kShoulderGripRight(0.27f, 0.435f);
     // Iteration 4: switched to the real Player.prefab-derived value instead
     // of continuing to eyeball-adjust. Bag is a child of "Shorts" (local
     // (0,-0.9) rel. Body), itself at local (0.18,0.289) rel. Shorts --
@@ -249,7 +266,7 @@ namespace App
         sFontUI = Render::LoadFont("ui.ttf", 20);
 
         sPlayer.Configure(kHandOffsetLeft, kHandOffsetRight, kHandGripRadius);
-        sPlayer.ConfigureShoulders(kShoulderOffsetLeft, kShoulderOffsetRight);
+        sPlayer.ConfigureShoulders(kShoulderGripLeft, kShoulderGripRight);
 
         MedalThresholds thresholds;
         sScore.Configure(kScoreTime, thresholds);

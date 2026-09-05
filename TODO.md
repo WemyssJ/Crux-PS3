@@ -14,6 +14,58 @@ the project root, that's a bug, not intended.
 
 ## Done
 
+- [x] **Fixed: player didn't actually start gripped to anything real --
+      root cause of the camera-panning and flip reports below too.** User
+      reported (in one message): the camera pans weirdly after a few
+      seconds, and the character still won't flip. Traced both to the same
+      cause: `Player::Reset()` always assumes the left hand starts gripping
+      something (`m_pivotWorld = HandWorld(true)`, a position computed
+      purely from fixed rig offsets) without ever checking whether that
+      position is actually solid ground. My earlier `EnsureStartIsClimbable()`
+      fix (previous entry, now superseded) only guaranteed something
+      climbable existed *within reach* of `PLAYERSTART` -- not that it
+      existed *exactly where the hand actually starts*, which is what
+      `Reset()` silently assumes. If the real nearest grip is even slightly
+      off from that exact assumed position, the player starts attached to
+      empty air.
+      Once ungripped, the natural next thing that happens (a jump/fly
+      attempt finding nothing to grab, or just generally not being
+      anchored) is entering the fall/fly state -- and `Camera2D`'s dynamic
+      flight camera only activates after `m_flightActivationDelay` (1
+      second) of continuous flying, at which point it switches to a much
+      more dramatic look-ahead-and-zoom mode. That matches "pans weirdly
+      after a few seconds" exactly. Separately, `Player::TryFlip()`
+      explicitly refuses to run while flying (`if (m_isFlying ...) return;`,
+      matching the source's `CanFlip()`), so if the player is already
+      flying/falling from the ungripped start, pressing flip does nothing
+      at all -- matching "still won't flip" exactly, independent of whether
+      the newly-added flip physics (previous entry) are themselves correct.
+      **Fix**: replaced `EnsureStartIsClimbable()` with a precise
+      `LevelData::EnsureCellSolidAt(Vec2 worldPos)`, called from
+      `App::LoadLevelByIndex` right after `Player::Reset()` with the
+      player's *actual* computed `HandWorldLeft()` -- guarantees solid
+      ground exactly where the hand really starts, not just somewhere
+      nearby. Screenshot-verified on Level 1: the grip block now renders
+      directly at the character's hand instead of floating a couple of
+      units away.
+      Also swapped `Player::ConfigureShoulders()` (added for the flip fix
+      below) from the cosmetic `kShoulderOffsetLeft/Right` (tuned by eye for
+      the shoulder-cap sprite) to new `kShoulderGripLeft/Right` constants --
+      the real `Shoulder_Grip` position from `player_rig.txt` (it sits at
+      `Arm_(L)`/`Arm_(R)`'s own local origin, so it's just that node's local
+      pos, scaled by the same 0.6 factor as `kHandOffsetLeft/Right`), for
+      physics precision. Verified via the same isolated scratch-program
+      approach as the flip fix that this doesn't change the qualitative
+      result (still a modest, sign-preserving reflection for this rig's
+      geometry -- see the flip entry below for why that's expected, not a
+      bug) but is the more faithful value to use.
+      **Not independently confirmed**: whether this actually eliminates the
+      camera panning and makes flip perceptible in real play -- the
+      reasoning connects cleanly and the grip fix itself is screenshot-
+      verified, but a live multi-second playtest is the only way to know
+      the downstream symptoms are actually gone. Ask for this to be
+      re-tested before assuming it's fully resolved.
+
 - [x] **Fixed: the flip move (X/Square) was a complete physics no-op.**
       Clarified after asking the user directly what "how do we flip our
       axis?" meant: pressing flip should change which way you're swinging
@@ -59,17 +111,13 @@ the project root, that's a bug, not intended.
       - **Start point had nothing climbable.** Confirmed against the real
         data: Level 1's `PLAYERSTART` is `(0,-15)`, nearest real grip cell
         is 5–8 units away -- well beyond hand-swing reach (`kHandOffsetLeft/
-        Right` are ~1.2–1.8 units). Added `LevelData::EnsureStartIsClimbable()`
-        (`level.cpp`/`level.h`), called at the end of `Load()`: scans for an
-        existing solid cell within `kReach` (1.8 units) of `PlayerStart()`,
-        and only if none exists, synthesizes one directly above the start.
-        Real level data is otherwise left untouched -- this only fills a
-        genuine "nothing reachable at all" gap, it doesn't pad density
-        anywhere else. Only runs for `Load()` (real levels); the hand-
-        authored placeholders were already designed to be climbable from
-        the start. Screenshot-verified on Level 1 (temporary `Init()` state
-        forcing, reverted after) -- a new grip cell now appears just above
-        spawn.
+        Right` are ~1.2–1.8 units). First attempt added
+        `LevelData::EnsureStartIsClimbable()`, scanning for anything within
+        an approximate reach radius of `PlayerStart()` and synthesizing a
+        cell nearby if none existed.
+        **Superseded** by a more precise fix below once it turned out this
+        wasn't actually enough -- see "Fixed: player didn't actually start
+        gripped to anything real" further up.
         **General "blocks are too sparse" note**: real cell density varies a
         lot per level (as low as ~2% of the bounds' area on Level 1) and
         this looked like it might be intentional difficulty pacing, not a
