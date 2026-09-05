@@ -21,6 +21,10 @@ public:
     Player();
 
     void Configure(Vec2 handOffsetLeft, Vec2 handOffsetRight, float handGripRadius);
+    // Shoulder positions -- only needed for TryFlip's flip-axis math (see
+    // its comment); not required for anything else, so kept as a separate
+    // setter rather than growing Configure's signature further.
+    void ConfigureShoulders(Vec2 shoulderOffsetLeft, Vec2 shoulderOffsetRight);
     void Reset(Vec2 startPos);
 
     // Combines what PlayerController.cs split into Update()+FixedUpdate() into a
@@ -83,6 +87,7 @@ private:
 
     // Rig
     Vec2 m_handOffsetLeft, m_handOffsetRight;
+    Vec2 m_shoulderOffsetLeft, m_shoulderOffsetRight;
     float m_handGripRadius;
 
     // Body state

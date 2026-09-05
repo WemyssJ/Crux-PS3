@@ -249,6 +249,7 @@ namespace App
         sFontUI = Render::LoadFont("ui.ttf", 20);
 
         sPlayer.Configure(kHandOffsetLeft, kHandOffsetRight, kHandGripRadius);
+        sPlayer.ConfigureShoulders(kShoulderOffsetLeft, kShoulderOffsetRight);
 
         MedalThresholds thresholds;
         sScore.Configure(kScoreTime, thresholds);

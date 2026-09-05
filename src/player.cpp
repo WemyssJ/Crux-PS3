@@ -6,7 +6,8 @@ static const float DEG2RAD = 3.14159265358979f / 180.0f;
 static const float RAD2DEG = 180.0f / 3.14159265358979f;
 
 Player::Player()
-    : m_handOffsetLeft(-0.3f, 0.4f), m_handOffsetRight(0.3f, 0.4f), m_handGripRadius(0.15f),
+    : m_handOffsetLeft(-0.3f, 0.4f), m_handOffsetRight(0.3f, 0.4f),
+      m_shoulderOffsetLeft(-0.3f, 0.2f), m_shoulderOffsetRight(0.3f, 0.2f), m_handGripRadius(0.15f),
       m_bodyPos(0.0f, 0.0f), m_bodyRotZ(0.0f),
       m_pivotWorld(0.0f, 0.0f), m_leftGrabbing(true), m_isFlipped(false), m_bothHandsAttached(false),
       m_pivotJustChanged(false),
@@ -30,6 +31,12 @@ void Player::Configure(Vec2 handOffsetLeft, Vec2 handOffsetRight, float handGrip
     m_handOffsetLeft = handOffsetLeft;
     m_handOffsetRight = handOffsetRight;
     m_handGripRadius = handGripRadius;
+}
+
+void Player::ConfigureShoulders(Vec2 shoulderOffsetLeft, Vec2 shoulderOffsetRight)
+{
+    m_shoulderOffsetLeft = shoulderOffsetLeft;
+    m_shoulderOffsetRight = shoulderOffsetRight;
 }
 
 void Player::Reset(Vec2 startPos)
@@ -349,16 +356,62 @@ void Player::UpdateLegs(float dt)
 
 void Player::TryFlip()
 {
-    // The Unity original flips body 180 deg around the arm axis while
-    // recomputing angularVelocity to preserve tangential speed exactly -- but
-    // that machinery exists only to keep the swing pivot fixed during a visual
-    // flip. Since our pivot is tracked explicitly (not derived from a rotated
-    // rig), a physical flip while swinging reduces to: it's only ever callable
-    // while grabbed (not flying), and its only physical effect is the mirrored
-    // orientation flag used by HandleFlightPhysics's rotation sign.
-    if (m_isFlying) return;
+    // Earlier version of this comment argued the physical flip "reduces to
+    // a no-op" since our pivot is tracked explicitly -- WRONG, and flagged
+    // by the user after playtesting (pressing flip did nothing to the
+    // actual swing). Re-read PlayerController.cs's FlipAroundCurrentHandPivot
+    // precisely: it reflects the body 180deg around an axis running from the
+    // gripping arm's shoulder through the current hand pivot (keeping the
+    // pivot itself fixed), then recomputes angularVelocity's SIGN so the
+    // real-world tangential swing direction is preserved -- a reflection
+    // doesn't change speed, only (possibly) which way "positive" points
+    // relative to the new position. That's the actual "change which way
+    // you're swinging" effect the flip button is for.
+    //
+    // CanFlip() in the source requires !isFlying && currentVisualPivot !=
+    // null; currentVisualPivot is explicitly nulled while both-hands-
+    // attached, so both-hands-attached implicitly can't flip either --
+    // this project has no null-pivot state, so check it explicitly instead.
+    if (m_isFlying || m_bothHandsAttached) return;
+
     m_isFlipped = !m_isFlipped;
     m_flips++;
+
+    Vec2 handOffset = m_leftGrabbing ? m_handOffsetLeft : m_handOffsetRight;
+    Vec2 shoulderOffset = m_leftGrabbing ? m_shoulderOffsetLeft : m_shoulderOffsetRight;
+
+    // Flip axis direction, world space: shoulder->pivot. Both shoulder and
+    // hand-grip are fixed offsets on the same rigid body-local rotation, so
+    // their world-space difference is just that same fixed local difference
+    // rotated by bodyRotZ (rotation distributes linearly over vector
+    // subtraction when rotating around a shared origin).
+    Vec2 axisDir = RotateAround(handOffset - shoulderOffset, Vec2(0.0f, 0.0f), m_bodyRotZ).normalized();
+
+    // d = pivot->body (matches the source's pivotToBodyBefore).
+    Vec2 d = m_bodyPos - m_pivotWorld;
+    float radius = d.magnitude();
+    if (radius < 1e-4f) return; // degenerate; leave position/velocity alone
+
+    // Reflect d across the line through the origin in direction axisDir.
+    Vec2 dReflected = axisDir * (2.0f * Dot(d, axisDir)) - d;
+    m_bodyPos = m_pivotWorld + dReflected;
+
+    // Recompute angularVelocity's sign to preserve the real-world tangential
+    // velocity direction (magnitude is unchanged by a reflection).
+    Vec2 tangentBefore = Vec2(-d.y, d.x) * (1.0f / radius);
+    float tangentialSpeed = m_angularVelocity * DEG2RAD * radius;
+    Vec2 velocityWorld = tangentBefore * tangentialSpeed;
+
+    Vec2 tangentAfter = Vec2(-dReflected.y, dReflected.x) * (1.0f / radius);
+    float sign = Dot(velocityWorld, tangentAfter) >= 0.0f ? 1.0f : -1.0f;
+    m_angularVelocity = sign * fabsf(tangentialSpeed) / radius * RAD2DEG;
+
+    // Solve bodyRotZ directly (rather than accumulating a delta) so
+    // HandWorld(handOffset) lands back exactly on the unchanged pivot --
+    // i.e. RotateAround(handOffset, bodyRotZ) == -dReflected.
+    float targetAngle = atan2f(-dReflected.y, -dReflected.x) * RAD2DEG;
+    float handOffsetAngle = atan2f(handOffset.y, handOffset.x) * RAD2DEG;
+    m_bodyRotZ = targetAngle - handOffsetAngle;
 }
 
 void Player::Step(float dt, const LevelData &level)

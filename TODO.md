@@ -14,6 +14,46 @@ the project root, that's a bug, not intended.
 
 ## Done
 
+- [x] **Fixed: the flip move (X/Square) was a complete physics no-op.**
+      Clarified after asking the user directly what "how do we flip our
+      axis?" meant: pressing flip should change which way you're swinging
+      by mirroring the player across the gripping arm's axis, and it
+      wasn't doing anything. `Player::TryFlip()`'s existing comment argued
+      the physical flip "reduces to a no-op" for this project's fixed-
+      offset-pivot model -- **that reasoning was wrong**. Re-read
+      `PlayerController.cs`'s `FlipAroundCurrentHandPivot()` precisely: it
+      reflects the body 180° around the axis from the gripping arm's
+      shoulder through the current hand pivot (pivot stays fixed), then
+      recomputes `angularVelocity`'s SIGN so the real-world tangential
+      swing direction is preserved (a reflection doesn't change speed,
+      only which way "positive" points relative to the new position) --
+      that repositioning was the actual "change swing direction" effect,
+      and it was entirely missing; `TryFlip()` only toggled a cosmetic
+      `isFlipped` flag.
+      Ported precisely: added `Player::ConfigureShoulders()` (shoulder
+      offsets weren't previously passed into `Player` at all -- only
+      needed for this), then in `TryFlip()`: compute the flip axis
+      (`RotateAround(handOffset - shoulderOffset, bodyRotZ)`, since both
+      offsets share the same body-local rotation, so their world-space
+      difference is just that fixed local difference rotated once),
+      reflect `bodyPos - pivotWorld` across it, recompute `angularVelocity`'s
+      sign from which tangent direction the preserved real-world velocity
+      projects onto, and solve `bodyRotZ` directly (not accumulated) so
+      `HandWorld(handOffset)` lands back exactly on the unchanged pivot.
+      **Verified in isolation** (not through the game loop -- Player's
+      state is private with no test hooks, and this project's synthetic-
+      input-injection has repeatedly failed in this environment): wrote a
+      standalone scratch program linking the real `vec2.h`, feeding the
+      exact real `kHandOffsetLeft`/`kShoulderOffsetLeft` constants through
+      the identical copied formula. Confirmed across multiple swing
+      angles/velocities: the pivot invariant holds exactly before and
+      after, radius and speed magnitude are preserved exactly, and the
+      body now genuinely repositions (previously always zero movement).
+      Screenshot-confirmed normal (non-flip) swinging is visually
+      unaffected -- `TryFlip()` only runs when flip is actually pressed.
+      **Not yet confirmed**: how this actually *feels* in real play --
+      needs a real playtest, tracked under "Flip visual read" below.
+
 - [x] **Playtest fixes from the first real-data play session**: user played
       the newly-real Level 1 and reported three things.
       - **Start point had nothing climbable.** Confirmed against the real
@@ -685,14 +725,6 @@ the project root, that's a bug, not intended.
 
 ## Open questions for the user (don't block on these — keep working, just flag)
 
-- **"How do we flip our axis?"** Asked verbatim during the first real-data
-  playtest, genuinely ambiguous -- could mean: (a) the player's existing
-  flip mechanic (X/Square, `Player::TryFlip`) not doing anything visible in
-  motion, (b) left/right input feeling reversed, (c) the level's vertical
-  (Y) axis reading upside-down/backwards vs. what climbing "up" should feel
-  like, or (d) something else entirely (a UI element, the camera). Didn't
-  guess and build the wrong fix -- need a one-line clarification on which
-  axis/mechanic before touching anything here.
 - **General level density/difficulty.** Real level cell density varies a
   lot (Level 1 ~2% of its bounds, Level 7 ~21%) -- is the sparser end (esp.
   Level 1) intentionally hard/floaty, or does it need padding beyond just
@@ -702,8 +734,12 @@ the project root, that's a bug, not intended.
   a wider hand-grip check radius would help overall rather than only at the
   start.
 - **Flip visual read.** Does the hand/foot-mirror-swap approximation for
-  `isFlipped` actually look right in motion? Confidence upgraded this
-  session: read `PlayerController.cs`'s actual `FlipHands()` (called from
+  `isFlipped` actually look right in motion, now that flipping also has a
+  real physical effect (see "Done" above -- `Player::TryFlip` was a pure
+  no-op until this session; verified the reflection math in isolation, but
+  the actual in-motion FEEL still needs a real playtest, same as always)?
+  Confidence upgraded this session: read `PlayerController.cs`'s actual
+  `FlipHands()` (called from
   inside `CanFlip()`, which the flip-input path calls twice per flip event
   — once with the pre-toggle `isFlipped`, once post-toggle via
   `FlipAroundCurrentHandPivot`'s own internal `CanFlip()` call) and it's a
