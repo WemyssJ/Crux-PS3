@@ -132,8 +132,9 @@ namespace App
     // Iteration 9: a real zoomed-in reference screenshot of the original
     // game arrived showing the belt as a genuinely slender band (much
     // thinner than this project had it) -- shrunk further to match.
+    // Iteration 10 (user-corrected): still not thin enough -- halved again.
     static const Vec2 kShortsLocalOffset(0.0f, -0.60f);
-    static const Vec2 kShortsSize(0.6f, 0.16f);
+    static const Vec2 kShortsSize(0.6f, 0.08f);
     // User-corrected: move out (further from centerline) and up.
     // Iteration 2 (user-corrected): moved down slightly (paired with
     // shorts moving down the same way).

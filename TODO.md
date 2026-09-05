@@ -361,6 +361,12 @@ the project root, that's a bug, not intended.
       slightly (y: -0.54->-0.60 and -0.42->-0.48 respectively) per
       direct request. Verified via rebuild + screenshot, full
       `build.bat` pass green, root clean.
+      **Round 10 — still too thick, halved again.** Confirmed first that
+      the previous round's build was genuinely current (`Build\PC\
+      crux_pc.exe`'s timestamp postdated the source edit) before
+      assuming the value itself needed to change further, not a stale-
+      build issue. `kShortsSize`'s height: 0.16 -> 0.08. Verified via
+      rebuild + screenshot, full `build.bat` pass green, root clean.
       **Still flagged, not yet actionable:** "legs are floppy and should
       move with rotation when flying" was reported without enough
       specifics to safely change blind (the leg-angle math already
