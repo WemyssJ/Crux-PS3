@@ -14,6 +14,92 @@ the project root, that's a bug, not intended.
 
 ## Done
 
+- [x] **Real Level 1–7 layout + player rig transform data, exported for real.**
+      Was blocked on batch-mode license activation (see git history) —
+      resolved once the user signed into Unity Hub and gave explicit
+      permission to run the export directly. Launched
+      `Unity.exe -projectPath ... -executeMethod PS3LevelExporter.ExportAll`
+      interactively (NOT `-batchmode` — that's what needed the unavailable
+      `.ulf`; the normal Hub-authenticated interactive license works fine
+      for this). One real gotcha along the way: `Start-Process -ArgumentList`
+      as a PowerShell array silently splits an argument containing a space
+      into two separate argv tokens no matter how the array element itself
+      is quoted — `"D:\Unity Projects\Crux\Crux"` arrived at Unity as two
+      arguments, corrupting `-projectPath` (visible in Unity's own logged
+      `COMMAND LINE ARGUMENTS` dump). Fixed by building one single
+      pre-quoted argument string instead of an array.
+      **Real bug found and fixed in `PS3LevelExporter.cs`:** the first
+      export attempt produced real `player_rig.txt` and real per-level
+      `PLAYERSTART`/`ENDTRIGGER`/`RESETTRIGGER` data, but `CELLCOUNT 0` on
+      all 7 levels — no wall/grip geometry at all. Root cause: the
+      exporter searched for the wall Tilemap via
+      `GetComponentInChildren<Tilemap>()` on scene root objects, but the
+      real one isn't a plain child anywhere findable that way — it's
+      referenced by field on `PlayerController`
+      (`[SerializeField] private Tilemap wallTilemap`, confirmed by
+      grepping the scene YAML for a `propertyPath: wallTilemap`
+      prefab-override entry, then finding that field in
+      `PlayerController.cs`). Fixed by reading it properly via
+      `SerializedObject`/`FindProperty("wallTilemap")` off the scene's
+      `PlayerController` instance, with the old child-search kept only as
+      a fallback. Re-ran; all 7 levels now have real, distinct,
+      non-trivial geometry (77–1365 cells each, real bounds, real
+      `PLAYERSTART`/trigger positions per level).
+      **Design realization this uncovered**: the real per-level cell
+      density is genuinely sparse (as low as ~2% of the bounds' area on
+      Level 1) and scattered, not the contiguous solid walls this
+      project's placeholder levels (`LoadPlaceholderShaft`/`Cavern`/
+      `Chimney`) modeled. Screenshot-verified on Level 1 (forced a
+      temporary `Init()` state, reverted after): the individual real
+      grip-point tiles render correctly as `ColorForCell`'s flat grey
+      squares, sparse and isolated, exactly matching the "swing between
+      wall grip points" mechanic from the original project plan — this is
+      what a `Physics2D.OverlapCircleNonAlloc`-based grip check against a
+      Tilemap of individual grab points looks like, not a solid-wall
+      collision layer wearing a confusing name. `ColorForCell`'s current
+      flat-grey-square look reads as a placeholder rather than an
+      intentional grip-point visual now that the real data shows how
+      sparse they are — worth a cosmetic pass later (a hand-hold/rock-nub
+      sprite instead of a flat quad) but not attempted here to avoid scope
+      creep on top of the data win.
+      `LoadLevelByIndex` already tried `data/level<N>.lvl` before falling
+      back to a placeholder, and `build.bat`/`make_pkg.ps1` already
+      recursively copy all of `data/` into both `Build\PC\` and the PS3
+      `.pkg` — so **no code or build-script changes were needed** for the
+      real level geometry, PB triggers, and player-start positions to
+      take effect; they're live as of this commit. Full `build.bat` pass
+      green on both targets afterward.
+      **Not yet done**: swapping the placeholder RIG constants
+      (`kHandOffsetLeft` aside, which was already re-derived earlier —
+      see below) for values computed from the now-complete real
+      `player_rig.txt` (Shoulder/Bag/Head/Leg local positions and
+      rotations for both arms/legs, not just the hand grip). That's a
+      separate, more involved pass (needs the 0.6 unit-scale factor and
+      non-center-pivot sprite reasoning already used for the hand offset)
+      — worth doing next since the exact real numbers are now on disk,
+      not extracted by a research agent's best effort.
+      **A shortcut, tried/reverted/re-applied earlier this session
+      (before the real export existed):** Unity prefab/scene/`.meta`
+      files are plain YAML, so `Assets/Prefab/Player.prefab`'s real
+      transform hierarchy (Arm/Leg/Shoulder/Bag/Head local positions and
+      rotations, `Arm.png`/`Leg.png`/etc.'s real pivot/pixel-per-unit
+      import settings) is readable straight from disk without the Editor
+      — a research agent extracted the full hierarchy (see git log for
+      the exact numbers). Composed the hand-grip offset from it (Arm's
+      local pos+rotation, plus Hand/HandGrip's further local offset,
+      scaled by this project's Unity-relative unit factor of 0.6), got
+      `(-1.376, 1.209)`, and *initially* reverted it as a regression — but
+      that judgment was only against an earlier, never-independently-
+      verified guess, not real footage. Once the user shared actual
+      side-by-side screenshots of the real game (both arms reaching in a
+      wide, nearly-straight diagonal spanning past both shoulders), the
+      derived value's wider/more-horizontal reach matched visibly better
+      than the old guess's narrower/more-vertical one — see `app.cpp`'s
+      `kHandOffsetLeft` comment. Re-applied, screenshot-verified at rest
+      and mid-swing, both look right. Lesson: a "regression" judged only
+      against a prior unvalidated guess isn't real evidence — real
+      reference footage is what actually settles it.
+
 - [x] **Fixed: pause menu's dimming scrim rendered completely invisible on
       PC.** Screenshot-verified while re-checking the pause overlay after
       unrelated `DrawMenuList` changes: the scrim (`DrawQuad` with a big
@@ -750,41 +836,6 @@ it can't be tested on hardware yet.
 
 ## Blocked on the user — can't proceed without you
 
-- **Real Level 1–7 layout + player rig transform data.** Needs one click of
-  the `PS3 > Export Level + Rig Data` Unity Editor menu item
-  (`Assets/Editor/PS3LevelExporter.cs`) — blocked from running headless
-  because Unity's batch-mode license check needs an activated `.ulf` this
-  machine doesn't have (it's a normal Hub-login license). Once exported
-  (`data/level1.lvl` … `level7.lvl`, `data/player_rig.txt`), swap the
-  placeholder level/rig constants in `app.cpp` for the real thing — this
-  would also resolve a lot of the remaining rig-proportion guesswork.
-  **A shortcut, tried/reverted/re-applied this session:** Unity prefab/
-  scene/`.meta` files are plain YAML, so `Assets/Prefab/Player.prefab`'s
-  real transform hierarchy (Arm/Leg/Shoulder/Bag/Head local positions and
-  rotations, `Arm.png`/`Leg.png`/etc.'s real pivot/pixel-per-unit import
-  settings) is readable straight from disk without the Editor — a research
-  agent extracted the full hierarchy (see git log for the exact numbers).
-  Composed the hand-grip offset from it (Arm's local pos+rotation, plus
-  Hand/HandGrip's further local offset, scaled by this project's Unity-
-  relative unit factor of 0.6), got `(-1.376, 1.209)`, and *initially*
-  reverted it as a regression — but that judgment was only against an
-  earlier, never-independently-verified guess, not real footage. Once the
-  user shared actual side-by-side screenshots of the real game (both arms
-  reaching in a wide, nearly-straight diagonal spanning past both
-  shoulders), the derived value's wider/more-horizontal reach matched
-  visibly better than the old guess's narrower/more-vertical one — see
-  `app.cpp`'s `kHandOffsetLeft` comment. Re-applied, screenshot-verified
-  at rest and mid-swing, both look right. Lesson: a "regression" judged
-  only against a prior unvalidated guess isn't real evidence — real
-  reference footage is what actually settles it.
-  Still didn't attempt Shoulder/Bag/Head/Leg from this data — those
-  sprites have non-center pivots (e.g. Shoulder/Bag pivot at their own
-  bottom-left, not center), so their GameObject position isn't directly
-  comparable to this project's center-anchored `DrawTexturedQuad`
-  convention without ALSO knowing each sprite's real visible-content
-  bounds (pixel inspection, not just the `.meta`). Worth revisiting now
-  that real reference screenshots exist to check against — see "Open
-  questions" below.
 - **On-hardware testing.** The DECHJ00A is powered off. `Build\PS3\` is
   staged and ready (see `PS3_DEPLOY_README.txt`) for whenever it's back on
   — either via Target Manager (target "PS3 Test", 10.1.1.2), copying the
