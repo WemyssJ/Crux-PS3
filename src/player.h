@@ -48,6 +48,17 @@ public:
     bool LeftGrabbing() const { return m_leftGrabbing; }
     bool BothHandsAttached() const { return m_bothHandsAttached; }
 
+    // True on the single Step() where the grip pivot just changed (attach,
+    // regrab, swap, or a swing releasing into flight) -- ported from the
+    // discrete cameraController?.UpdatePivot() call sites in
+    // PlayerController.cs (HandleUpArrowAttach's attach/detach branches,
+    // HandleSpaceInput's regrab-after-falling branch and StartFlight,
+    // SwapHandsPreserveDirection), which snap the camera's pivot instead of
+    // having it track the body every frame -- the camera stays anchored on
+    // the current grip point while continuously swinging on it. Cleared at
+    // the top of every Step().
+    bool PivotJustChanged() const { return m_pivotJustChanged; }
+
     // Stats, for ScoreManager / PlayerStatsTracker equivalents.
     int SwingJumps() const { return m_swingJumps; }
     int LaunchJumps() const { return m_launchJumps; }
@@ -83,6 +94,7 @@ private:
     bool m_leftGrabbing;
     bool m_isFlipped;
     bool m_bothHandsAttached;
+    bool m_pivotJustChanged;
 
     // Velocity state
     bool m_isFlying;

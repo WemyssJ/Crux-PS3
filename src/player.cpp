@@ -9,6 +9,7 @@ Player::Player()
     : m_handOffsetLeft(-0.3f, 0.4f), m_handOffsetRight(0.3f, 0.4f), m_handGripRadius(0.15f),
       m_bodyPos(0.0f, 0.0f), m_bodyRotZ(0.0f),
       m_pivotWorld(0.0f, 0.0f), m_leftGrabbing(true), m_isFlipped(false), m_bothHandsAttached(false),
+      m_pivotJustChanged(false),
       m_isFlying(false), m_angularVelocity(0.0f), m_flightVelocity(0.0f, 0.0f),
       m_spaceCooldown(0.0f), m_spaceHeld(false), m_fallingAfterMiss(false), m_flipBufferCounter(0.0f),
       m_spinInput(0.0f), m_steerInput(0.0f),
@@ -39,6 +40,7 @@ void Player::Reset(Vec2 startPos)
     m_pivotWorld = HandWorld(true);
     m_isFlipped = false;
     m_bothHandsAttached = false;
+    m_pivotJustChanged = false;
     m_isFlying = false;
     m_angularVelocity = 0.0f;
     m_flightVelocity = Vec2(0.0f, 0.0f);
@@ -76,6 +78,7 @@ void Player::HandleUpArrowAttach(const LevelData &level)
             m_isFlying = false;
             m_angularVelocity = 0.0f;
             m_flightVelocity = Vec2(0.0f, 0.0f);
+            m_pivotJustChanged = true;
         }
     }
 
@@ -111,6 +114,10 @@ void Player::HandleUpArrowAttach(const LevelData &level)
         }
 
         m_isFlying = false;
+        // Unconditional in the source (PlayerController.cs's down-detach
+        // branch calls cameraController?.UpdatePivot() regardless of whether
+        // SwapHandsPreserveDirection above actually found a new grip).
+        m_pivotJustChanged = true;
     }
 }
 
@@ -153,6 +160,7 @@ void Player::HandleSpaceInput(const LevelData &level)
                     float speed = fabsf(m_angularVelocity) * DEG2RAD * radius;
                     m_angularVelocity = Sign(m_angularVelocity) * RAD2DEG * speed / radius;
                 }
+                m_pivotJustChanged = true;
                 m_spaceCooldown = m_spaceCooldownDuration;
             }
             else
@@ -184,6 +192,7 @@ void Player::HandleSpaceInput(const LevelData &level)
 
             m_isFlying = true;
             m_flightVelocity = ClampMagnitude(tangent * speed, m_maxFlightSpeed);
+            m_pivotJustChanged = true;
         }
         else
         {
@@ -247,6 +256,7 @@ void Player::SwapHandsPreserveDirection(const LevelData &level)
     }
 
     m_pivotWorld = newPivot;
+    m_pivotJustChanged = true;
 }
 
 void Player::UpdateHandColors(const LevelData &level)
@@ -353,6 +363,7 @@ void Player::TryFlip()
 
 void Player::Step(float dt, const LevelData &level)
 {
+    m_pivotJustChanged = false;
     if (m_spaceCooldown > 0.0f) m_spaceCooldown -= dt;
 
     m_spinInput = 0.0f;

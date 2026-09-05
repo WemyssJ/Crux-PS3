@@ -207,6 +207,15 @@ namespace App
         }
 
         sPlayer.Step(dt, sLevel);
+        // Ported from CameraController.UpdatePivot() being called from
+        // PlayerController.cs on every grip-change event (attach/regrab/
+        // swap/launch) instead of tracking the body every frame -- the
+        // camera stays anchored on the current grip point while
+        // continuously swinging on it. This was previously unwired: the
+        // method (Camera2D::SnapPivot) already existed but nothing called
+        // it, so the camera pivot never moved past the level's start
+        // position outside of flightCamActive's own per-frame catch-up.
+        if (sPlayer.PivotJustChanged()) sCamera.SnapPivot(sPlayer.BodyPos());
         sCamera.Step(dt, sPlayer);
         sScore.Tick(dt);
 

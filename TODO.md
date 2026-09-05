@@ -87,13 +87,56 @@ the project root, that's a bug, not intended.
       equivalent) still gates there. Both targets rebuilt clean, full
       `build.bat` pass (PC+PS3+textures+`.pkg`) verified green afterward.
       **Not interactively verified** — see "Open questions" below.
+- [x] **Camera pivot wiring bug, found via source comparison.** Read
+      `CameraController.cs`/`PlayerController.cs` fresh against
+      `camera2d.cpp`/`player.cpp` and found a real gap: the source calls
+      `cameraController?.UpdatePivot()` (snap the camera's follow-pivot to
+      the body's current position) from five discrete grip-change call
+      sites — both-hands attach, the down-detach branch (unconditionally,
+      regardless of whether the swap below it found a new grip),
+      `HandleSpaceInput`'s regrab-after-falling branch, `StartFlight`, and
+      `SwapHandsPreserveDirection` — rather than every frame, so the camera
+      stays anchored on the current grip point while continuously swinging
+      on it. `Camera2D::SnapPivot()` already existed for exactly this
+      (comment cites `UpdatePivot()` by name) but nothing in `app.cpp` ever
+      called it — the pivot only ever moved via `Camera2D::Step`'s own
+      `flightCamActive` per-frame catch-up, meaning outside of sustained
+      flight the camera would never leave the level's start position no
+      matter how much regrabbing/swapping happened. Fixed by adding
+      `Player::PivotJustChanged()` (set at the same four `player.cpp`
+      call sites the source's `UpdatePivot()` calls map to — attach,
+      detach, regrab-after-falling, and the inline `StartFlight` block;
+      flip does *not* call `UpdatePivot()` in the source, so it's
+      correctly left out), cleared at the top of every `Step()`, and
+      checked in `App::Update` right after `sPlayer.Step()` to call
+      `sCamera.SnapPivot(sPlayer.BodyPos())`. Verified with a standalone
+      test that the flag never fires on idle frames and always clears the
+      frame after any event it did fire on (deleted after confirming);
+      couldn't get the placeholder level's exact start pose to trigger an
+      actual attach/regrab event in the test (swing physics don't require
+      continuous wall contact at the pivot, so the geometry needed for
+      that is level-layout-specific) — relying on the careful 1:1 mapping
+      against every source call site for "fires at the right moment"
+      confidence. Both targets rebuild clean, full `build.bat` pass green.
+      **Not visually confirmed during real regrab/launch/attach events**
+      (needs live play, same category as the other input-gated behaviors
+      above) — but this is a source-comparison bug fix, not a guess.
 
 ## Open questions for the user (don't block on these — keep working, just flag)
 
 - **Flip visual read.** Does the hand/foot-mirror-swap approximation for
-  `isFlipped` actually look right in motion? This needs live play (press
-  the flip key mid-swing), not a screenshot — genuinely can't verify
-  further without a human at the keyboard or a way to script input timing.
+  `isFlipped` actually look right in motion? Confidence upgraded this
+  session: read `PlayerController.cs`'s actual `FlipHands()` (called from
+  inside `CanFlip()`, which the flip-input path calls twice per flip event
+  — once with the pre-toggle `isFlipped`, once post-toggle via
+  `FlipAroundCurrentHandPivot`'s own internal `CanFlip()` call) and it's a
+  plain, unconditional `localScale.x` sign-flip on both `handLeft`/
+  `handRight` gated only by "not flying and has a pivot" — exactly what
+  `app.cpp`'s `isFlipped`-driven mirror-swap already does. This is no
+  longer a best-effort guess, it's a confirmed 1:1 match to the source.
+  Still needs live play to confirm it *reads* right at a glance (readable
+  visual feedback is a UX question the code match can't settle by itself),
+  but the underlying logic is now known-correct rather than approximated.
   (Tried once: temporarily patched `input_pc.cpp` behind a
   `CRUX_SCRIPTED_TEST` macro to drive `Input::` from a hardcoded frame
   script instead of real keys, sidestepping the input-injection problem
