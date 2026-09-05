@@ -102,12 +102,16 @@ namespace App
     static const Vec2 kShoulderOffsetLeft(-0.32f, 0.5f);
     static const Vec2 kShoulderOffsetRight(0.32f, 0.5f);
     static const Vec2 kShoulderCapSize(0.30f, 0.30f);
-    // User-corrected: it's a waist pouch, not a backpack -- moved down from
-    // the upper back (0, 0.1) to waist/belt height, and shrunk to match.
-    // Iteration 2 (user-corrected): sat too low/deep -- raised back up some.
-    static const Vec2 kBagLocalOffset(0.0f, -0.25f);
-    // Iteration 3 (user-corrected): read as too thick/chunky -- shrunk.
-    static const Vec2 kBagSize(0.24f, 0.24f);
+    // Iteration 4: switched to the real Player.prefab-derived value instead
+    // of continuing to eyeball-adjust. Bag is a child of "Shorts" (local
+    // (0,-0.9) rel. Body), itself at local (0.18,0.289) rel. Shorts --
+    // Bag_rel_Body = (0.18,-0.611) Unity units, x0.6 project scale factor =
+    // (0.108,-0.367). Note it's NOT centered on the body (x != 0) in the
+    // real rig -- previous iterations assumed symmetric placement.
+    static const Vec2 kBagLocalOffset(0.11f, -0.37f);
+    // Real size from Bag.png's actual crop (94x102 px @ 256 px/unit import,
+    // see Bag.png.meta) x0.6 scale = (0.220, 0.239).
+    static const Vec2 kBagSize(0.22f, 0.24f);
     static const Vec2 kHipOffsetLeft(-0.16f, -0.5f);
     static const Vec2 kHipOffsetRight(0.16f, -0.5f);
     // Thickness deliberately wider than the raw source PNG ratio (63/512 =
@@ -437,19 +441,23 @@ namespace App
         // Arms: geometrically aimed from the shoulder anchor straight at the
         // actual grip point (Player::HandWorldLeft/Right), so they're always
         // visually correct regardless of rig proportion guesses.
+        // User-corrected: right arm's baked-in shading was on the wrong
+        // side (top instead of bottom) -- mirrored.
         DrawLimb(sTexArm, shoulderL, sPlayer.HandWorldLeft(), kLimbAspect, 0xFFFFFFFF);
-        DrawLimb(sTexArm, shoulderR, sPlayer.HandWorldRight(), kLimbAspect, 0xFFFFFFFF);
+        DrawLimb(sTexArm, shoulderR, sPlayer.HandWorldRight(), kLimbAspect, 0xFFFFFFFF, 0.0f, true);
 
         // Shoulder caps drawn after the arms, on top, to cover the arm/body
         // seam. Shoulder.png is a dome (rounded top, flat bottom as authored)
         // -- user-corrected orientation: rounded edge should face the body,
         // flat edge should sit along the arm, so rotate its "up" (rounded
         // side) to point from hand back toward the shoulder, same AngleAlong
-        // convention DrawLimb uses. Shading isn't symmetric, so left mirrors.
+        // convention DrawLimb uses. Shading isn't symmetric -- user-corrected:
+        // both sides' shading was on the wrong side (top instead of bottom),
+        // swapped which one mirrors (right now mirrors, left no longer does).
         float shoulderCapAngleL = AngleAlong(shoulderL - sPlayer.HandWorldLeft());
         float shoulderCapAngleR = AngleAlong(shoulderR - sPlayer.HandWorldRight());
-        Render::DrawTexturedQuad(sTexShoulder, shoulderL, kShoulderCapSize, shoulderCapAngleL, 0xFFFFFFFF, true);
-        Render::DrawTexturedQuad(sTexShoulder, shoulderR, kShoulderCapSize, shoulderCapAngleR, 0xFFFFFFFF);
+        Render::DrawTexturedQuad(sTexShoulder, shoulderL, kShoulderCapSize, shoulderCapAngleL, 0xFFFFFFFF);
+        Render::DrawTexturedQuad(sTexShoulder, shoulderR, kShoulderCapSize, shoulderCapAngleR, 0xFFFFFFFF, true);
 
         // Hands, tinted by grip state (ported from PlayerController.SetHandsColor).
         // Hand.png's real pivot is at its own bottom edge (wrist), not

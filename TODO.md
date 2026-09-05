@@ -274,6 +274,25 @@ the project root, that's a bug, not intended.
         outward — swapped `footOffsetL/R`'s X sign for both sides.
       Re-verified via rebuild + screenshot, full `build.bat` pass green,
       root clean.
+      **Round 5 (two more screenshots, "better" but more corrections):**
+      - Left shoulder, right shoulder, and right arm had their baked-in
+        shading on the wrong side (top instead of bottom) — mirrored all
+        three (left shoulder's mirror removed, right shoulder's added,
+        right arm's added).
+      - Bag/belt size and placement switched to the real Player.prefab-
+        derived value instead of continuing to eyeball-adjust: Bag is a
+        child of "Shorts" (local (0,-0.9) rel. Body), itself at local
+        (0.18,0.289) rel. Shorts, giving (0.108,-0.367) in this project's
+        0.6-scaled units — notably NOT centered on the body (previous
+        iterations assumed symmetric placement). Size from Bag.png's real
+        crop (94x102px @ 256px/unit) scaled the same way: (0.22,0.24).
+      - Reviewed leg-into-body and feet-into-leg placement plus shoe size
+        against both screenshots — nothing looked clearly broken to me at
+        this resolution, so left unchanged rather than guess a change
+        with no clear direction. Flagging back to the user rather than
+        silently doing nothing.
+      Re-verified via rebuild + screenshot, full `build.bat` pass green,
+      root clean.
       **Still flagged, not yet actionable:** "legs are floppy and should
       move with rotation when flying" was reported without enough
       specifics to safely change blind (the leg-angle math already
