@@ -796,7 +796,7 @@ namespace App
 
         const float kOx = 0.006f, kOy = 0.006f; // shadow/highlight offset, nx/ny fractions
         Render::DrawUIText(sFontUI, 0.5f + kOx, 0.15f + kOy, "CRUX", 0xFF2A2018, 2.0f, true); // shadow
-        Render::DrawUIText(sFontUI, 0.5f - kOx, 0.15f - kOy, "CRUX", 0xFFE8DCC0, 2.0f, true); // highlight
+        Render::DrawUIText(sFontUI, 0.5f - kOx, 0.15f - kOy, "CRUX", 0x708F826E, 2.0f, true); // highlight -- paler, low-alpha, close to the slab's own tone so it blends in rather than reading as a second outline
         Render::DrawUIText(sFontUI, 0.5f, 0.15f, "CRUX", 0xFFF0E8D8, 2.0f, true);             // face
     }
 
