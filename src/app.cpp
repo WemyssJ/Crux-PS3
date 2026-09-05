@@ -150,17 +150,25 @@ namespace App
     // first pass had -- shrunk the body, grew the head, shortened the legs.
     static const Vec2 kBodySize(0.6f, 1.2f);
     static const Vec2 kHeadSize(0.62f, 0.62f);
-    // User-corrected: the neck is already part of Body.png's own torso art
-    // (visible at its top edge), not a separate missing piece -- pulling the
-    // head down to 0.56 buried it too low into the torso instead of sitting
-    // on top of the neck that's already there. Raised above the original
-    // 0.68 so the head anchors cleanly on top of the torso's neck.
-    // User-corrected: head needed to sit slightly higher still.
-    static const Vec2 kHeadLocalOffset(0.0f, 0.82f);
-    // User-corrected: arms/shoulders read as too close in against the
-    // torso -- pushed the anchor out slightly.
-    static const Vec2 kShoulderOffsetLeft(-0.32f, 0.5f);
-    static const Vec2 kShoulderOffsetRight(0.32f, 0.5f);
+    // Derived from real data: PlayerController.cs's UpdateHead() doesn't
+    // use Head's own (static, editor-time) transform at all -- every frame
+    // it does `head.position = neck.position`, i.e. Head's real runtime
+    // position is just wherever "Neck Grip" sits (confirmed by resolving
+    // Player.prefab's serialized `neck` field to that GameObject's fileID,
+    // not by name-matching alone). Neck_Grip is a fixed Body-local child at
+    // (0,1) -- scaled by the project's 0.6 factor: (0, 0.6). Earlier manual
+    // tuning (see history below) landed on 0.82 instead, having rejected an
+    // even lower 0.56/0.68 as burying the head into the torso -- flagged as
+    // a real tension with this derived value, not silently overridden.
+    static const Vec2 kHeadLocalOffset(0.0f, 0.6f);
+    // Derived from real data: Shoulder is a fixed child of Arm_(L)/(R) at
+    // arm-local (0.011,0.124); composing with Arm's own local pos/rotation
+    // (and its -1 x-scale on the right side, which flips the child's local
+    // offset before rotation) gives (-0.545,0.805)/(0.545,0.805) unscaled,
+    // x0.6 = (-0.327,0.483)/(0.327,0.483) -- very close to the prior
+    // tuned-by-eye value, safe swap.
+    static const Vec2 kShoulderOffsetLeft(-0.327f, 0.483f);
+    static const Vec2 kShoulderOffsetRight(0.327f, 0.483f);
     static const Vec2 kShoulderCapSize(0.30f, 0.30f);
     // Physics-only shoulder-grip position for Player::TryFlip's flip-axis
     // math -- NOT the same as kShoulderOffsetLeft/Right above, which is a
@@ -207,11 +215,13 @@ namespace App
     // small olive blob.
     static const Vec2 kShortsLocalOffset(0.0f, -0.54f);
     static const Vec2 kShortsSize(0.6f, 1.2f);
-    // User-corrected: move out (further from centerline) and up.
-    // Iteration 2 (user-corrected): moved down slightly (paired with
-    // shorts moving down the same way).
-    static const Vec2 kHipOffsetLeft(-0.22f, -0.48f);
-    static const Vec2 kHipOffsetRight(0.22f, -0.48f);
+    // Derived from real data: Leg_(L)/(R)'s own body-local position IS the
+    // hip anchor directly (its local rotation only affects how the leg
+    // sprite fans out from there, not the anchor itself) -- (-0.4,-0.7)/
+    // (0.4,-0.7) unscaled, x0.6 = (-0.24,-0.42)/(0.24,-0.42). Replaces
+    // earlier by-eye tuning (moved out and up, then down again).
+    static const Vec2 kHipOffsetLeft(-0.24f, -0.42f);
+    static const Vec2 kHipOffsetRight(0.24f, -0.42f);
     // Thickness deliberately wider than the raw source PNG ratio (63/512 =
     // 0.123) and leg length scaled 1.5x from 0.6 -- same "~50% too small"
     // correction as the arm reach above.

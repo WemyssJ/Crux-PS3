@@ -14,6 +14,48 @@ the project root, that's a bug, not intended.
 
 ## Done
 
+- [x] **Derived Head/Hip/Shoulder rig offsets from real `player_rig.txt`
+      data**, replacing tuned-by-eye placeholders (Bag/Shorts were already
+      correctly derived earlier this session, left untouched).
+      - **Head — real bug in the earlier assumption.** Initially derived
+        Head's offset from its own static `Player/Head` transform
+        (0.04, 0.975), same convention as Bag/Shorts. Wrong: checked
+        `PlayerController.cs`'s `UpdateHead()` first and found
+        `head.position = neck.position` runs every frame — Head's real
+        runtime position is NOT its own editor-time transform at all, it's
+        wherever a separate "neck" object sits. Resolved which object that
+        actually is by reading `Player.prefab`'s serialized
+        `neck: {fileID: ...}` field and matching that fileID to its
+        GameObject (`Neck Grip`, exported as `Neck_Grip` — exporter
+        replaces spaces with underscores), not by guessing from the name.
+        `Neck_Grip` is a fixed Body-local child at (0,1) → `kHeadLocalOffset`
+        (0, 0.6), replacing (0, 0.82).
+        **Flagged tension, not silently resolved**: earlier manual tuning
+        this session explicitly rejected 0.56 as "buried too low into the
+        torso" and landed on 0.82 instead. 0.6 sits close to the rejected
+        value. Screenshot-verified anyway (rest pose in the customizer AND
+        mid-swing in real gameplay) rather than trusting the derivation
+        blindly given that known conflict — in both, the head reads
+        correctly attached with a visible neck gap, not buried. Kept the
+        derived value on that basis, but this is the one most worth a
+        second look on the next playtest specifically.
+      - **Hips**: `Leg_(L)/(R)`'s own body-local position IS the hip anchor
+        directly (checked `UpdateLegs()` — it only ever changes leg
+        *angle*, never position, so no dynamic-override surprise like
+        Head's). (-0.4,-0.7)/(0.4,-0.7) × 0.6 scale = `kHipOffsetLeft/Right`
+        (-0.24,-0.42)/(0.24,-0.42), replacing (-0.22,-0.48)/(0.22,-0.48).
+      - **Shoulders** (cosmetic cap sprite anchor): composed `Shoulder`'s
+        arm-local offset (0.011,0.124) through `Arm_(L)/(R)`'s own local
+        position/rotation/scale (the right arm's -1 x-scale flips the
+        child's local offset before rotation is applied — verified this
+        composition is correct by confirming it reproduces the *already
+        independently derived* `kHandOffsetLeft` value using the identical
+        method). Result (-0.327,0.483)/(0.327,0.483) is very close to the
+        prior tuned value (-0.32,0.5)/(0.32,0.5) — low-risk swap.
+      All three screenshot-verified together (customizer rest pose + real
+      mid-swing gameplay) — coherent, no regressions, no visible seams.
+      Full `build.bat` pass green on both targets afterward.
+
 - [x] **Second playtest-feedback batch**: five rig/control complaints in one
       message.
       - **"Pivot point is around arm end not center of hand."** The earlier
@@ -899,9 +941,10 @@ the project root, that's a bug, not intended.
   Both-hands-attached and mid-swing (not flying) poses still haven't
   been checked against real reference the same way — worth another
   side-by-side pass if more reference screenshots become available.
-  Shoulder/Bag/Head/Leg offsets (the ones not re-derived from
-  Player.prefab data, see above) are the most likely next candidates if
-  anything still reads off in a fresh comparison.
+  Shoulder/Hip/Head offsets are now derived from real `player_rig.txt`
+  data too (see "Done" above) — the head specifically is flagged there as
+  worth a second look, having landed close to a value earlier manual
+  tuning explicitly rejected.
 - **PS3 save-data writability.** PB persistence (`save.cpp`) uses plain
   `fopen`/`fwrite` to `SYS_APP_HOME/save.dat` on PS3, not `cellSaveData`.
   Works in principle (same stdio calls as the PC version, which is
