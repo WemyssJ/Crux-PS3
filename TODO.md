@@ -14,6 +14,70 @@ the project root, that's a bug, not intended.
 
 ## Done
 
+- [x] **Second playtest-feedback batch**: five rig/control complaints in one
+      message.
+      - **"Pivot point is around arm end not center of hand."** The earlier
+        bottom-pivot emulation (pushed the hand quad outward from the grip
+        point by half its own height, to land Hand.png's real wrist-edge
+        pivot at the arm tip -- see that iteration's own comment) made the
+        swing pivot visually read as sitting at the arm's end instead of
+        the hand's center. Removed the outward push entirely; hands now
+        draw centered exactly on `HandWorldLeft/Right()` (the actual grip
+        point), matching how the customizer preview already drew them
+        (it never had this offset applied).
+      - **"Legs are too short."** `kLegLength` 0.9 -> 1.2.
+      - **"Bag is too small."** `kBagSize` (0.22,0.24) -> (0.31,0.34), ~1.4x.
+      - **"Neck rotates off body with head, neck should be fixed."** The
+        head's rendered rotation used `Player::HeadRotZ()` -- a deliberately
+        *lagging* smoothed follower of `bodyRotZ` (ported from
+        `PlayerController.cs`'s `UpdateHead`, a "head bob" effect), while the
+        head's *position* anchor used `bodyRotZ` directly. That mismatch
+        visibly disconnected the head from the body at the neck seam during
+        a swing. Switched the head's rendered rotation to `bodyRotZ`
+        directly (rigid attachment) -- `Player::HeadRotZ()`'s underlying
+        lag simulation is left untouched (still ported faithfully, matches
+        source), it's just no longer used for rendering.
+      - **"F to flip user along axis doesn't work."** Two-part fix:
+        1. Added `F` as an alternate PC keyboard binding for flip, alongside
+           the existing `X` (`input_pc.cpp`) -- if the user was pressing
+           the literal F key (not bound to anything before this), that
+           alone explains "doesn't work."
+        2. Re-verified the flip physics fix from earlier (previous entry)
+           with a REAL sustained swing this time (held right for 90 frames
+           to build actual momentum, not just the low-momentum early-swing
+           snapshots tested before): confirmed it still reflects the body
+           to the other side of the pivot (position X sign flips, rotation
+           changes by a real ~15°) with the same ~0.42-unit magnitude
+           regardless of how much momentum was built -- consistent with
+           the earlier finding that this is a fixed geometric property of
+           the rig (shoulder sits close to body-origin, roughly the same
+           direction as the hand), not something a bigger swing changes.
+           The effect is real and working; whether 0.42 units reads as
+           "enough" in actual play is a feel question for the next
+           playtest, not something to keep guess-tuning blind.
+      All four visual changes (hand pivot, legs, bag; neck isn't visible
+      as a static-frame difference, lag only shows during motion)
+      screenshot-verified on Level 1 (temporary `Init()` state forcing,
+      reverted after) -- rig renders coherently, no regressions.
+
+- [x] **Escape now opens the pause menu / backs out of menus instead of
+      quitting the app.** Added a new `Input::backIsPressed` (PC-only,
+      bound to Escape; always `false` on PS3, no pad equivalent) rather
+      than aliasing Escape to an existing signal -- `pauseIsPressed` and
+      `restartIsPressed` already have two DIFFERENT meanings depending on
+      game state (`restartIsPressed` means "reset the level" during
+      gameplay), so blindly OR-ing Escape into both would have made it
+      reset the level *and* open the pause menu in the same keypress.
+      Wired contextually in `app.cpp` instead: opens the pause menu during
+      gameplay (alongside `pauseIsPressed`), resumes from the pause menu
+      (alongside `pauseIsPressed`), and backs out to the Main Menu /
+      cancels the color grid in every other menu screen (alongside
+      `restartIsPressed`) -- never touches the "reset level" gameplay
+      binding. Removed the old `SDL_SCANCODE_ESCAPE -> sQuit` hijack in
+      `render_pc.cpp`; only the window's own close button/Alt+F4 quits the
+      app now. Updated the keyboard hint text (`Restart: back` ->
+      `Restart/Esc: back`, etc.) to mention it.
+
 - [x] **Fixed: player didn't actually start gripped to anything real --
       root cause of the camera-panning and flip reports below too.** User
       reported (in one message): the camera pans weirdly after a few
