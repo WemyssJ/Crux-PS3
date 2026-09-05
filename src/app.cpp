@@ -415,9 +415,10 @@ namespace App
         // User-corrected: both feet need the same horizontal mirror (unlike
         // hands, which are a true asymmetric L/R pair -- Feet.png plus the
         // already-asymmetric footOffset sign apparently doesn't need an
-        // additional per-side texture mirror on top).
-        Render::DrawTexturedQuad(sTexFeet, hipL + legDirL + footOffsetL, kFeetSize, legAngleL, 0xFFFFFFFF, !flip);
-        Render::DrawTexturedQuad(sTexFeet, hipR + legDirR + footOffsetR, kFeetSize, legAngleR, 0xFFFFFFFF, !flip);
+        // additional per-side texture mirror on top). Both were then facing
+        // the wrong way outright, so both flipped again from the first fix.
+        Render::DrawTexturedQuad(sTexFeet, hipL + legDirL + footOffsetL, kFeetSize, legAngleL, 0xFFFFFFFF, flip);
+        Render::DrawTexturedQuad(sTexFeet, hipR + legDirR + footOffsetR, kFeetSize, legAngleR, 0xFFFFFFFF, flip);
 
         // Body + bag (bag worn on the back, under the head/arms) + head (head
         // keeps its own slightly-lagging rotation, ported from
@@ -466,8 +467,10 @@ namespace App
         // reverted the "both hands same mirror" change: left needs the
         // mirror, right doesn't (Hand.png reads correctly as-authored for
         // one side only, same as the original design before that edit).
-        Render::DrawTexturedQuad(sTexHand, sPlayer.HandWorldLeft() + handOffsetL, kHandSize, bodyRotZ, TintForHand(sPlayer.LeftHandColor()), !flip);
-        Render::DrawTexturedQuad(sTexHand, sPlayer.HandWorldRight() + handOffsetR, kHandSize, bodyRotZ, TintForHand(sPlayer.RightHandColor()), flip);
+        // Both then turned out to be facing the wrong way outright, so the
+        // assignment swapped (left<->right) from that first fix.
+        Render::DrawTexturedQuad(sTexHand, sPlayer.HandWorldLeft() + handOffsetL, kHandSize, bodyRotZ, TintForHand(sPlayer.LeftHandColor()), flip);
+        Render::DrawTexturedQuad(sTexHand, sPlayer.HandWorldRight() + handOffsetR, kHandSize, bodyRotZ, TintForHand(sPlayer.RightHandColor()), !flip);
 
         DrawUIOverlay();
 

@@ -253,6 +253,12 @@ the project root, that's a bug, not intended.
         use `!flip`; hands are back to `!flip`/`flip` (left/right).
       All re-verified via rebuild + screenshot. Full `build.bat` pass
       green, root clean.
+      **Round 3 (same live comparison):** both hands and both feet were
+      facing the wrong way outright after round 2's fixes — hands: the
+      `!flip`/`flip` assignment was swapped left<->right (left now
+      `flip`, right now `!flip`); feet: both flipped from `!flip` to
+      `flip` (keeping both-the-same from round 2, just inverted).
+      Re-verified via rebuild + screenshot, full `build.bat` pass green.
       **Still flagged, not yet actionable:** user reported "feet are
       wrong" and "legs are floppy and should move with rotation when
       flying" without enough specifics to safely change blind (the leg-
