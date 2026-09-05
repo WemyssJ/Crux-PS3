@@ -5,6 +5,7 @@
 #include "player.h"
 #include "camera2d.h"
 #include "score.h"
+#include "save.h"
 #include <math.h>
 #include <stdio.h>
 
@@ -48,7 +49,10 @@ namespace App
 
         sPlayer.Reset(sLevel.PlayerStart());
         sCamera.Reset(sLevel.PlayerStart());
-        sScore.ResetPersonalBest();
+        if (Save::HasBest(index))
+            sScore.SetPersonalBest(Save::GetBest(index));
+        else
+            sScore.ResetPersonalBest();
         sScore.StartRun();
     }
 
@@ -147,6 +151,8 @@ namespace App
         MedalThresholds thresholds;
         sScore.Configure(kScoreTime, thresholds);
 
+        Save::Load();
+
         sLevelIndex = 0;
         LoadLevelByIndex(sLevelIndex);
 
@@ -182,6 +188,10 @@ namespace App
             if (sScore.IsRunActive())
             {
                 sScore.StopRun(sPlayer);
+                // StopRun only updates ScoreTracker's in-memory PB;
+                // ScoreTracker doesn't know which level it's tracking, so
+                // the persistence write happens here instead.
+                Save::SetBest(sLevelIndex, sScore.PersonalBest());
                 // No level-select menu yet (see TODO.md) -- advance straight
                 // to the next level, wrapping after the last placeholder.
                 // LoadLevelByIndex resets the player away from this trigger,

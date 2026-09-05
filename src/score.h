@@ -35,11 +35,13 @@ public:
 
     void Configure(ScoreType type, MedalThresholds thresholds);
     // Levels aren't the same shape, so a PB from one is meaningless (or
-    // misleading) on another -- call when switching levels. Also means PBs
-    // don't persist across a level revisit yet, same as they don't survive
-    // a relaunch (see the TODO on StopRun) -- real per-level persistence is
-    // still open.
+    // misleading) on another -- call when switching levels and no saved PB
+    // exists for the new level (see Save:: in save.h/.cpp for per-level
+    // persistence; App::LoadLevelByIndex calls this or SetPersonalBest
+    // depending on whether Save::HasBest is true for that level).
     void ResetPersonalBest() { m_hasPB = false; m_personalBest = 0.0f; }
+    // Loads a previously-persisted PB (see Save::) instead of resetting.
+    void SetPersonalBest(float value) { m_hasPB = true; m_personalBest = value; }
     void StartRun();
     // Call every frame while a run is active; drives the Time score type.
     void Tick(float dt);

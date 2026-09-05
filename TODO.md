@@ -86,6 +86,13 @@ the project root, that's a bug, not intended.
 - **Rig proportions in motion.** Everything's been checked at-rest or in a
   landing pose; mid-swing/flying/both-hands-attached poses haven't had
   dedicated screenshot passes.
+- **PS3 save-data writability.** PB persistence (`save.cpp`) uses plain
+  `fopen`/`fwrite` to `SYS_APP_HOME/save.dat` on PS3, not `cellSaveData`.
+  Works in principle (same stdio calls as the PC version, which is
+  verified), but whether `SYS_APP_HOME` is actually writable in whatever
+  context the `.pkg` runs in is unverified without the devkit. Ask if the
+  polished `cellSaveData` XMB-icon experience is wanted eventually, or if
+  simple file persistence is fine.
 
 ## Next — can make real progress on these without the user
 
@@ -134,13 +141,27 @@ it can't be tested on hardware yet.
    every level load. Note this means PBs don't persist per-level either
    (same root cause as item 4 below, just a different symptom -- worth
    fixing together).
-4. **PB persistence.** `ScoreTracker` currently keeps personal-bests in
-   memory only, and only for the *current* level (resets on relaunch AND on
-   switching levels — see the TODO comment in `score.cpp` and item 3 above).
-   Needs to be **per-level**, not a single value: a small keyed store (level
-   index -> best score) rather than one float. Wire real persistence: a
-   simple local file on PC (fully testable now); `cellSaveData` on PS3
-   (compiles, but can't be verified without hardware).
+4. ~~**PB persistence.**~~ [Done, PC-verified] New `src/save.h`/`save.cpp`
+   (`Save::` namespace) keeps a small keyed store (level index -> best
+   score) in a flat text file (`save.dat`, one line per level:
+   `<index> <hasValue 0/1> <value>`). `app.cpp`'s `LoadLevelByIndex` loads
+   the saved PB for that level (or resets if none saved); the end-trigger
+   handler in `Update()` writes a new PB back immediately via
+   `Save::SetBest` right after `ScoreTracker::StopRun` (`ScoreTracker`
+   itself still doesn't know about levels -- App:: bridges the two, kept
+   deliberately separate). Verified with a standalone round-trip test
+   (write two levels' PBs, force a fresh reload simulating a relaunch,
+   confirm both values and the untouched slots' `HasBest()` all come back
+   correct) -- deleted after confirming, wasn't left in the tree.
+   Simplified on PS3: plain `fopen`/`fwrite` via `SYS_APP_HOME`, not (yet)
+   the full `cellSaveData` dialog/icon/PARAM.SFO-metadata system, which is
+   a much bigger API that can't be verified without hardware anyway. This
+   compiles for PS3 and should work identically in principle (same stdio
+   calls), but is **not verified on real hardware** — if `SYS_APP_HOME`
+   turns out not to be writable in whatever context the `.pkg` actually
+   runs in, saves would silently fail there. Worth an on-hardware check
+   once the devkit's back on; upgrading to real `cellSaveData` (so saves
+   show up properly in the XMB) is a separate, larger follow-up if wanted.
 5. **PS3 texture pipeline.** `Render::LoadTexture`/`DrawTexturedQuad` in
    `render_ps3.cpp` are stubs (see the TODO comment there) — falls back to
    flat-colored quads. Needs: PNG→DDS conversion (check for a usable

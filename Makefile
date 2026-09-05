@@ -18,7 +18,7 @@ SAMPLE_NAME = crux
 GCM_UTIL = $(CELL_SDK)/samples/common/gcmutil
 SUBDIRS = $(GCM_UTIL)
 
-PPU_SRCS = src/main_ps3.cpp src/render_ps3.cpp src/input_ps3.cpp src/app.cpp src/level.cpp src/player.cpp src/camera2d.cpp src/score.cpp
+PPU_SRCS = src/main_ps3.cpp src/render_ps3.cpp src/input_ps3.cpp src/app.cpp src/level.cpp src/player.cpp src/camera2d.cpp src/score.cpp src/save.cpp
 PPU_TARGET = $(SAMPLE_NAME).ppu.elf
 
 PPU_INCDIRS += -I$(GCM_UTIL) -I$(CELL_SDK)/samples/common/padutil -I$(CELL_SDK)/samples/common/gtf -Isrc

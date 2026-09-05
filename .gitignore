@@ -12,3 +12,4 @@ buildscripts/pkg_stage/
 *.dll
 *.pkg
 PARAM.SFO
+save.dat

@@ -9,7 +9,7 @@ CXX = g++
 CXXFLAGS = -std=c++11 -O2 -Wall -DCRUX_PC `sdl2-config --cflags`
 LDFLAGS = `sdl2-config --libs` -lSDL2_image -lSDL2_ttf
 
-SRCS = src/main_pc.cpp src/input_pc.cpp src/render_pc.cpp src/app.cpp src/level.cpp src/player.cpp src/camera2d.cpp src/score.cpp
+SRCS = src/main_pc.cpp src/input_pc.cpp src/render_pc.cpp src/app.cpp src/level.cpp src/player.cpp src/camera2d.cpp src/score.cpp src/save.cpp
 OBJDIR = build_pc
 OBJS = $(patsubst src/%.cpp,$(OBJDIR)/%.o,$(SRCS))
 

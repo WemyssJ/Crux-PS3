@@ -60,8 +60,9 @@ void ScoreTracker::StopRun(const Player &player)
     {
         m_personalBest = current;
         m_hasPB = true;
-        // TODO: persist via cellSaveData once the PS3 save-data phase lands
-        // (see plan Phase 5). In-memory only for now -- resets on relaunch.
+        // Actual disk persistence lives one layer up: ScoreTracker doesn't
+        // know about levels, so App:: (which does) calls Save::SetBest with
+        // PersonalBest() right after this returns -- see app.cpp's Update().
     }
 }
 
