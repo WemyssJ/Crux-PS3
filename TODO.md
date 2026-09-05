@@ -293,6 +293,34 @@ the project root, that's a bug, not intended.
         silently doing nothing.
       Re-verified via rebuild + screenshot, full `build.bat` pass green,
       root clean.
+      **Round 6 — a real missing piece, not just a tuning pass.** The
+      user asked "are we missing a shorts sprite?" and directly prompted
+      me to look at `Shorts.png` itself (not just its `.meta`) — it's the
+      waist BELT band (blue overalls above and below, an olive horizontal
+      stripe through the middle), a completely separate sprite/layer from
+      `Bag.png` (the small pouch) that had never been copied into this
+      project or rendered at all. This explains the "belt"/"bag" back-
+      and-forth in earlier rounds — every "belt" comment was actually
+      landing on the Bag.png pouch rendering, since there was no real
+      belt layer to be looking at yet.
+      - Added `data/sprites/shorts.png` (copied from the Unity source),
+        `sTexShorts`, and a new draw call between Body and Bag, matching
+        the real rig hierarchy (Body -> Shorts -> Bag). Real Player.
+        prefab data: Shorts is a direct child of Body at local (0,-0.9),
+        same 256x512 @ 256px/unit texture as Body.png, so it shares
+        `kBodySize`'s exact scale (0.6x1.2) before adjustment.
+      - User-corrected: read as too deep (tall) once visible — halved
+        `kShortsSize`'s height (0.6x1.2 -> 0.6x0.6), keeping width, to
+        read as a thinner belt-line.
+      - Bag moved down slightly (`kBagLocalOffset.y`: -0.37 -> -0.42).
+      - Shoes read as too small — scaled `kFeetSize` up 1.5x (0.20 ->
+        0.30).
+      - Hips moved out and up (`kHipOffsetLeft/Right`: (-0.16,-0.5) ->
+        (-0.22,-0.42), mirrored for the right side).
+      All verified via rebuild + screenshot at rest and mid-swing. Full
+      `build.bat` pass green on both targets (including PS3 -- the new
+      sprite went through the texture pipeline automatically), root
+      clean.
       **Still flagged, not yet actionable:** "legs are floppy and should
       move with rotation when flying" was reported without enough
       specifics to safely change blind (the leg-angle math already
@@ -474,7 +502,7 @@ it can't be tested on hardware yet.
      hand-written DDS with **zero errors** — real, tool-validated
      confirmation the format is correct, not just structurally plausible.
    - `buildscripts/make_textures.ps1` batch-converts all of
-     `data/sprites/*.png` to `data/gtf/*.gtf` (9 sprites currently); wired
+     `data/sprites/*.png` to `data/gtf/*.gtf` (10 sprites currently); wired
      into `build.bat` as its own stage, before the PS3 build.
    - `render_ps3.cpp`'s `LoadTexture` now calls `cellGcmUtilLoadTexture`
      for real (derives `data/gtf/<name>.gtf` from the PNG filename passed

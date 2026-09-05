@@ -108,12 +108,24 @@ namespace App
     // Bag_rel_Body = (0.18,-0.611) Unity units, x0.6 project scale factor =
     // (0.108,-0.367). Note it's NOT centered on the body (x != 0) in the
     // real rig -- previous iterations assumed symmetric placement.
-    static const Vec2 kBagLocalOffset(0.11f, -0.37f);
+    // Iteration 5 (user-corrected): moved down slightly further.
+    static const Vec2 kBagLocalOffset(0.11f, -0.42f);
     // Real size from Bag.png's actual crop (94x102 px @ 256 px/unit import,
     // see Bag.png.meta) x0.6 scale = (0.220, 0.239).
     static const Vec2 kBagSize(0.22f, 0.24f);
-    static const Vec2 kHipOffsetLeft(-0.16f, -0.5f);
-    static const Vec2 kHipOffsetRight(0.16f, -0.5f);
+    // Shorts.png -- the waist BELT band (previously missing entirely; the
+    // small pouch above is Bag.png, a separate sprite/layer worn near it).
+    // Real Player.prefab data: Shorts is a direct child of Body at local
+    // (0,-0.9), same 256x512 @ 256px/unit texture as Body.png itself, so it
+    // shares kBodySize's exact scale (0.6x1.2) before any further
+    // adjustment. User-corrected: read as too deep (tall) -- halved the
+    // height, keeping width, to read as a thinner belt-line rather than a
+    // second full torso capsule.
+    static const Vec2 kShortsLocalOffset(0.0f, -0.54f);
+    static const Vec2 kShortsSize(0.6f, 0.6f);
+    // User-corrected: move out (further from centerline) and up.
+    static const Vec2 kHipOffsetLeft(-0.22f, -0.42f);
+    static const Vec2 kHipOffsetRight(0.22f, -0.42f);
     // Thickness deliberately wider than the raw source PNG ratio (63/512 =
     // 0.123) and leg length scaled 1.5x from 0.6 -- same "~50% too small"
     // correction as the arm reach above.
@@ -122,9 +134,10 @@ namespace App
     // Matched against a reference gameplay screenshot, then nudged back up
     // slightly (user-reported still wrong after the previous pass).
     static const Vec2 kHandSize(0.22f, 0.22f);
-    static const Vec2 kFeetSize(0.20f, 0.20f);
+    // User-corrected: shoes read as too small -- scaled up 1.5x from 0.20.
+    static const Vec2 kFeetSize(0.30f, 0.30f);
 
-    static TextureHandle sTexBody, sTexHead, sTexArm, sTexLeg, sTexHand, sTexFeet, sTexShoulder, sTexBag, sTexCaveBg;
+    static TextureHandle sTexBody, sTexHead, sTexArm, sTexLeg, sTexHand, sTexFeet, sTexShoulder, sTexBag, sTexShorts, sTexCaveBg;
     static FontHandle sFontUI;
 
     // cave_bg.png is a single sprite cropped from Unity's "Cave - BigRocks1"
@@ -163,6 +176,7 @@ namespace App
         sTexFeet = Render::LoadTexture("feet.png");
         sTexShoulder = Render::LoadTexture("shoulder.png");
         sTexBag = Render::LoadTexture("bag.png");
+        sTexShorts = Render::LoadTexture("shorts.png");
         sTexCaveBg = Render::LoadTexture("cave_bg.png");
         sFontUI = Render::LoadFont("ui.ttf", 20);
 
@@ -427,10 +441,15 @@ namespace App
         Render::DrawTexturedQuad(sTexFeet, hipL + legDirL + footOffsetL, kFeetSize, legAngleL, 0xFFFFFFFF, flip);
         Render::DrawTexturedQuad(sTexFeet, hipR + legDirR + footOffsetR, kFeetSize, legAngleR, 0xFFFFFFFF, flip);
 
-        // Body + bag (bag worn on the back, under the head/arms) + head (head
-        // keeps its own slightly-lagging rotation, ported from
-        // PlayerController.UpdateHead, while still translating with the body).
+        // Body + shorts (waist belt band) + bag (the small pouch worn near
+        // it -- a separate sprite from the belt itself) + head (head keeps
+        // its own slightly-lagging rotation, ported from PlayerController.
+        // UpdateHead, while still translating with the body). Draw order
+        // matches the real rig hierarchy: Body -> Shorts -> Bag.
         Render::DrawTexturedQuad(sTexBody, bodyPos, kBodySize, bodyRotZ, 0xFFFFFFFF);
+
+        Vec2 shortsPos = bodyPos + RotateAround(kShortsLocalOffset, Vec2(0, 0), bodyRotZ);
+        Render::DrawTexturedQuad(sTexShorts, shortsPos, kShortsSize, bodyRotZ, 0xFFFFFFFF);
 
         Vec2 bagPos = bodyPos + RotateAround(kBagLocalOffset, Vec2(0, 0), bodyRotZ);
         Render::DrawTexturedQuad(sTexBag, bagPos, kBagSize, bodyRotZ, 0xFFFFFFFF);
