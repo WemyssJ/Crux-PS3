@@ -31,8 +31,9 @@ the project root, that's a bug, not intended.
       shoulder cap orientation, neck join, and bag placement all
       screenshot-verified and corrected at least once each. See git log
       for the individual correction commits if a specific constant's
-      history matters. PS3 side compiles but still falls back to flat
-      colored quads for all of this (see "PS3 texture pipeline" below).
+      history matters. PS3 side now renders the same real sprite textures
+      too, not flat colored quads (see "PS3 texture pipeline" below, done
+      since this note was originally written).
 - [x] **Flip mirroring wired up** — `Player::IsFlipped()` existed but
       `app.cpp` never used it. Best-effort interpretation (documented
       inline in `app.cpp` and below under "Open questions"): the
