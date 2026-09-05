@@ -106,7 +106,8 @@ namespace App
     // the upper back (0, 0.1) to waist/belt height, and shrunk to match.
     // Iteration 2 (user-corrected): sat too low/deep -- raised back up some.
     static const Vec2 kBagLocalOffset(0.0f, -0.25f);
-    static const Vec2 kBagSize(0.32f, 0.32f);
+    // Iteration 3 (user-corrected): read as too thick/chunky -- shrunk.
+    static const Vec2 kBagSize(0.24f, 0.24f);
     static const Vec2 kHipOffsetLeft(-0.16f, -0.5f);
     static const Vec2 kHipOffsetRight(0.16f, -0.5f);
     // Thickness deliberately wider than the raw source PNG ratio (63/512 =
@@ -410,8 +411,10 @@ namespace App
         // image, not the unflipped source.
         float legAngleL = bodyRotZ + sPlayer.LegAngleLeft();
         float legAngleR = bodyRotZ + sPlayer.LegAngleRight();
-        Vec2 footOffsetL = RotateAround(Vec2(kFeetSize.x * 0.28f, kFeetSize.y * 0.18f), Vec2(0, 0), legAngleL);
-        Vec2 footOffsetR = RotateAround(Vec2(-kFeetSize.x * 0.28f, kFeetSize.y * 0.18f), Vec2(0, 0), legAngleR);
+        // User-corrected: feet pointed inward (toward the body's centerline)
+        // instead of outward -- swapped the offset's X sign for both sides.
+        Vec2 footOffsetL = RotateAround(Vec2(-kFeetSize.x * 0.28f, kFeetSize.y * 0.18f), Vec2(0, 0), legAngleL);
+        Vec2 footOffsetR = RotateAround(Vec2(kFeetSize.x * 0.28f, kFeetSize.y * 0.18f), Vec2(0, 0), legAngleR);
         // User-corrected: both feet need the same horizontal mirror (unlike
         // hands, which are a true asymmetric L/R pair -- Feet.png plus the
         // already-asymmetric footOffset sign apparently doesn't need an
@@ -461,16 +464,28 @@ namespace App
         // continuing past it.
         Vec2 armDirLocalL = (kHandOffsetLeft - kShoulderOffsetLeft).normalized();
         Vec2 armDirLocalR = (kHandOffsetRight - kShoulderOffsetRight).normalized();
-        Vec2 handOffsetL = RotateAround(armDirLocalL * (kHandSize.y * 0.5f), Vec2(0, 0), bodyRotZ);
-        Vec2 handOffsetR = RotateAround(armDirLocalR * (kHandSize.y * 0.5f), Vec2(0, 0), bodyRotZ);
+        Vec2 worldArmDirL = RotateAround(armDirLocalL, Vec2(0, 0), bodyRotZ);
+        Vec2 worldArmDirR = RotateAround(armDirLocalR, Vec2(0, 0), bodyRotZ);
+        Vec2 handOffsetL = worldArmDirL * (kHandSize.y * 0.5f);
+        Vec2 handOffsetR = worldArmDirR * (kHandSize.y * 0.5f);
+        // User-corrected: hands were joining the arm at the thumb instead
+        // of the base/wrist -- they were rotating with bodyRotZ alone,
+        // ignoring the arm's own fixed local angle (the ~55deg baked into
+        // the shoulder/hand offsets), so the hand's wrist axis didn't
+        // align with the arm's actual direction. Use the same AngleAlong
+        // convention as the arm/shoulder-cap sprites instead, so the
+        // hand's local "up" (wrist-to-fingers) points along the real arm
+        // direction.
+        float handAngleL = AngleAlong(worldArmDirL);
+        float handAngleR = AngleAlong(worldArmDirR);
         // Hands ARE a true asymmetric L/R pair (unlike feet, see below) --
         // reverted the "both hands same mirror" change: left needs the
         // mirror, right doesn't (Hand.png reads correctly as-authored for
         // one side only, same as the original design before that edit).
         // Both then turned out to be facing the wrong way outright, so the
         // assignment swapped (left<->right) from that first fix.
-        Render::DrawTexturedQuad(sTexHand, sPlayer.HandWorldLeft() + handOffsetL, kHandSize, bodyRotZ, TintForHand(sPlayer.LeftHandColor()), flip);
-        Render::DrawTexturedQuad(sTexHand, sPlayer.HandWorldRight() + handOffsetR, kHandSize, bodyRotZ, TintForHand(sPlayer.RightHandColor()), !flip);
+        Render::DrawTexturedQuad(sTexHand, sPlayer.HandWorldLeft() + handOffsetL, kHandSize, handAngleL, TintForHand(sPlayer.LeftHandColor()), flip);
+        Render::DrawTexturedQuad(sTexHand, sPlayer.HandWorldRight() + handOffsetR, kHandSize, handAngleR, TintForHand(sPlayer.RightHandColor()), !flip);
 
         DrawUIOverlay();
 

@@ -259,12 +259,27 @@ the project root, that's a bug, not intended.
       `flip`, right now `!flip`); feet: both flipped from `!flip` to
       `flip` (keeping both-the-same from round 2, just inverted).
       Re-verified via rebuild + screenshot, full `build.bat` pass green.
-      **Still flagged, not yet actionable:** user reported "feet are
-      wrong" and "legs are floppy and should move with rotation when
-      flying" without enough specifics to safely change blind (the leg-
-      angle math already includes `bodyRotZ`, so "floppy" likely means
-      something more specific than what that suggests) — need a
-      screenshot or more detail before touching either.
+      **Round 4 (user sent a screenshot with specifics):**
+      - Hands were joining the arm at the thumb instead of the base/
+        wrist — they were rotating with `bodyRotZ` alone, ignoring the
+        arm's own fixed local angle (the ~55deg baked into the shoulder/
+        hand offsets), so the hand's wrist axis didn't align with the
+        arm's actual direction. Now uses the same `AngleAlong` convention
+        as the arm/shoulder-cap sprites (computed from the real world-
+        space arm direction, `worldArmDirL/R`, reused for both the
+        rotation and the outward offset).
+      - Belt/bag read as too thick/chunky — shrunk `kBagSize` (0.32 ->
+        0.24).
+      - Feet pointed inward (toward the body's centerline) instead of
+        outward — swapped `footOffsetL/R`'s X sign for both sides.
+      Re-verified via rebuild + screenshot, full `build.bat` pass green,
+      root clean.
+      **Still flagged, not yet actionable:** "legs are floppy and should
+      move with rotation when flying" was reported without enough
+      specifics to safely change blind (the leg-angle math already
+      includes `bodyRotZ`, so "floppy" likely means something more
+      specific than what that suggests) — need a screenshot or more
+      detail before touching it.
 
 ## Open questions for the user (don't block on these — keep working, just flag)
 
