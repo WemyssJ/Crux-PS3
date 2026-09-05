@@ -14,6 +14,31 @@ the project root, that's a bug, not intended.
 
 ## Done
 
+- [x] **Fixed: pause menu's dimming scrim rendered completely invisible on
+      PC.** Screenshot-verified while re-checking the pause overlay after
+      unrelated `DrawMenuList` changes: the scrim (`DrawQuad` with a big
+      semi-transparent black quad) produced NO visible dimming at all --
+      HUD text and background behind the pause list were fully bright,
+      undimmed. Root-caused by probing with progressively different colors
+      at the same size/alpha: a semi-transparent RED quad rendered
+      correctly; the identical quad recolored to near-black -- even
+      (1,1,1), not just pure (0,0,0) -- rendered nothing whatsoever. This
+      is a driver/backend quirk in this machine's SDL2 renderer (likely
+      Direct3D9): a texture with a near-zero color-mod combined with
+      per-texture alpha-mod silently fails to draw, rather than drawing a
+      faint/black result. Not a size or math bug -- separately ruled out
+      an oversized (100x100 world unit) quad and confirmed an opaque
+      quad at the same size rendered fine. Fixed by using a color that's
+      dark but clearly non-zero (`0xC0201C28`) instead of near-black,
+      and by properly sizing the scrim to the camera's actual current
+      zoom (`OrthoSize()`) instead of an arbitrary oversized constant.
+      Every other alpha-blended quad already in the code (menu button
+      boxes, level-select tile panels) uses RGB values well clear of
+      zero, so this was screenshot-confirmed to be the only place this
+      bit -- worth remembering if a future semi-transparent overlay ever
+      goes invisible again: check whether its color-mod is close to
+      black before assuming it's a size/camera/alpha-value bug.
+
 - [x] **Real gamepad support, per-limb customizer, tiled/paginated level
       select, and menu visual polish (mountain background, button boxes,
       centered text, carved-stone CRUX banner).**

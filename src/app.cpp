@@ -1028,10 +1028,26 @@ namespace App
 
     static void DrawPauseMenuOverlay()
     {
-        // Dim the gameplay world behind the pause list -- oversized quad so
-        // it covers the visible area regardless of the camera's current zoom
-        // (CameraController.cs dynamically zooms out during flight).
-        Render::DrawQuad(sCamera.Position(), Vec2(100.0f, 100.0f), 0.0f, 0x90000000);
+        // Dim the gameplay world behind the pause list. Sized to the actual
+        // visible viewport (same aspect math as MenuWorldPos) plus a small
+        // margin, so it tracks the camera's current zoom (CameraController.cs
+        // dynamically zooms out during flight).
+        //
+        // Color is a dark charcoal, NOT pure/near-black -- screenshot-
+        // verified (probing with progressively different colors) that this
+        // SDL renderer backend silently fails to draw an alpha-blended quad
+        // whose color-mod is at or very near (0,0,0): a semi-transparent
+        // red quad this same size rendered correctly, but the identical
+        // quad recolored to (1,1,1) rendered nothing at all, same as pure
+        // black -- some driver/backend quirk with near-zero color-mod
+        // combined with per-texture alpha, not a size or math bug (an
+        // opaque quad this size, and an oversized 100x100-world-unit
+        // version, both ruled out separately). Lifting the color just
+        // clear of zero fixed it outright.
+        float orthoHalfHeight = sCamera.OrthoSize();
+        const float kAspectScale = 2.66667f; // (1024/768)*2, matches MenuWorldPos
+        Vec2 scrimSize(orthoHalfHeight * kAspectScale * 1.05f, orthoHalfHeight * 2.0f * 1.05f);
+        Render::DrawQuad(sCamera.Position(), scrimSize, 0.0f, 0xC0201C28);
         static const char *kItems[] = { "Resume", "Reset Level", "Main Menu" };
         DrawMenuList("PAUSED", kItems, 3, sMenuCursor, sCamera.Position(), sCamera.OrthoSize());
     }
