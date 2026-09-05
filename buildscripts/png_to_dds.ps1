@@ -41,13 +41,18 @@ $bmp.Dispose()
 
 function LE32([uint32]$v)
 {
-    # Byte-by-byte via [byte] casts on already-small (0-255) shifted-and-
-    # masked values -- never constructs an out-of-Int32-range literal.
+    # Byte-by-byte via bitwise shifts, NOT division -- PowerShell's `/`
+    # returns a float, and casting that float to [uint32] ROUNDS to the
+    # nearest integer rather than truncating (e.g. 499/256 = 1.949 rounds
+    # UP to 2, not down to 1). That corrupted any value whose low byte was
+    # >= 128 -- e.g. height=499 got encoded as byte1=2 instead of 1,
+    # decoding back as 755. Bitwise shifts on the uint32 sidestep floating-
+    # point entirely, so there's no rounding to get wrong.
     return [byte[]](
         [byte]($v -band 0xFF),
-        [byte](([uint32]($v / 256)) -band 0xFF),
-        [byte](([uint32]($v / 65536)) -band 0xFF),
-        [byte](([uint32]($v / 16777216)) -band 0xFF)
+        [byte](($v -shr 8) -band 0xFF),
+        [byte](($v -shr 16) -band 0xFF),
+        [byte](($v -shr 24) -band 0xFF)
     )
 }
 
