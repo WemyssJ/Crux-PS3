@@ -321,6 +321,21 @@ the project root, that's a bug, not intended.
       `build.bat` pass green on both targets (including PS3 -- the new
       sprite went through the texture pipeline automatically), root
       clean.
+      **Round 7 (one more screenshot, "better"):**
+      - Left foot needed mirroring relative to right — feet turned out to
+        be a true asymmetric L/R pair after all (like hands), not a
+        "both the same" case as round 3 assumed. Left now `!flip`, right
+        `flip`.
+      - Belt (`Shorts.png`) and bag (`Bag.png`) overlapped enough to read
+        as "doubled up" once the belt was actually visible for the first
+        time — `kBagLocalOffset` was inside `kShortsSize`'s vertical span
+        (belt: y in [-0.84,-0.24] at the time; bag center at -0.42, well
+        inside it). Repositioned the bag above the belt's top edge
+        instead (`kBagLocalOffset.y`: -0.42 -> -0.30) and shrunk the belt
+        further (`kShortsSize`: 0.6x0.6 -> 0.6x0.4) for a cleaner gap
+        between the two.
+      Verified via rebuild + screenshot at rest and mid-swing. Full
+      `build.bat` pass green on both targets, root clean.
       **Still flagged, not yet actionable:** "legs are floppy and should
       move with rotation when flying" was reported without enough
       specifics to safely change blind (the leg-angle math already
