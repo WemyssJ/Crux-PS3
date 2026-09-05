@@ -25,6 +25,33 @@ namespace App
     static bool sUsingPlaceholder = false;
     static int sLevelIndex = 0;
 
+    // No C# equivalent to port here -- the real game has no main menu/level
+    // select/customizer/pause-menu scripts among Assets/Scripts (SceneController
+    // just jumps straight into whichever scene is loaded), so this whole
+    // flow is new, not a port. Kept deliberately simple: text/quad menus
+    // using the same Render:: primitives already used for the UI overlay,
+    // navigated with Left/Right (already edge-triggered) + Jump (confirm) +
+    // Restart (back) -- no new input actions needed.
+    enum GameState { kStateMainMenu, kStateLevelSelect, kStateCustomizer, kStatePlaying, kStatePauseMenu };
+    static GameState sGameState = kStateMainMenu;
+    static int sMenuCursor = 0;
+
+    // Character customizer -- "colours for now" per the request. Applied to
+    // the clothing surfaces (Body/Arm/Leg/Shoulder/Shorts) only, not
+    // skin/hair/accessories (Head/Hand/Feet/Bag), which keep their own
+    // authored colors and grip-state tinting.
+    static const unsigned int kPlayerColors[] =
+    {
+        0xFFFFFFFF, // default (as-authored)
+        0xFFFF9090, // red
+        0xFF90E090, // green
+        0xFF90C0FF, // blue
+        0xFFFFE060, // yellow
+        0xFFE090FF, // purple
+    };
+    static const int kPlayerColorCount = sizeof(kPlayerColors) / sizeof(kPlayerColors[0]);
+    static int sPlayerColorIndex = 0;
+
     // Tries data/level<N+1>.lvl (real exported data, once
     // PS3/Export-Level-+-Rig-Data has been run in Unity -- see TODO.md)
     // before falling back to one of LevelData's built-in placeholder
@@ -203,8 +230,7 @@ namespace App
 
         Save::Load();
 
-        sLevelIndex = 0;
-        LoadLevelByIndex(sLevelIndex);
+        sGameState = kStateMainMenu;
 
         return true;
     }
@@ -216,23 +242,117 @@ namespace App
         sLevel.Unload();
     }
 
-    static bool sPaused = false;
+    // Left/Right move the cursor (already edge-triggered, safe to reuse
+    // directly); Jump confirms; Restart backs out to the Main Menu.
+    static void UpdateMainMenu()
+    {
+        const int kCount = 3; // Play, Select Level, Customize
+        if (Input::leftIsPressed) sMenuCursor = (sMenuCursor + kCount - 1) % kCount;
+        if (Input::rightIsPressed) sMenuCursor = (sMenuCursor + 1) % kCount;
+        if (Input::jumpWasPressed)
+        {
+            if (sMenuCursor == 0)
+            {
+                LoadLevelByIndex(sLevelIndex);
+                sGameState = kStatePlaying;
+            }
+            else if (sMenuCursor == 1)
+            {
+                sMenuCursor = sLevelIndex;
+                sGameState = kStateLevelSelect;
+            }
+            else
+            {
+                sMenuCursor = sPlayerColorIndex;
+                sGameState = kStateCustomizer;
+            }
+        }
+    }
+
+    static void UpdateLevelSelect()
+    {
+        int count = LevelData::PlaceholderLevelCount();
+        if (Input::leftIsPressed) sMenuCursor = (sMenuCursor + count - 1) % count;
+        if (Input::rightIsPressed) sMenuCursor = (sMenuCursor + 1) % count;
+        if (Input::jumpWasPressed)
+        {
+            sLevelIndex = sMenuCursor;
+            LoadLevelByIndex(sLevelIndex);
+            sGameState = kStatePlaying;
+        }
+        if (Input::restartIsPressed)
+        {
+            sMenuCursor = 0;
+            sGameState = kStateMainMenu;
+        }
+    }
+
+    static void UpdateCustomizer()
+    {
+        if (Input::leftIsPressed) sPlayerColorIndex = (sPlayerColorIndex + kPlayerColorCount - 1) % kPlayerColorCount;
+        if (Input::rightIsPressed) sPlayerColorIndex = (sPlayerColorIndex + 1) % kPlayerColorCount;
+        if (Input::jumpWasPressed || Input::restartIsPressed)
+        {
+            sMenuCursor = 0;
+            sGameState = kStateMainMenu;
+        }
+    }
+
+    static void UpdatePauseMenu()
+    {
+        const int kCount = 3; // Resume, Reset Level, Main Menu
+        if (Input::leftIsPressed) sMenuCursor = (sMenuCursor + kCount - 1) % kCount;
+        if (Input::rightIsPressed) sMenuCursor = (sMenuCursor + 1) % kCount;
+        // Pause toggles back to gameplay too, same edge-triggered pad state
+        // in the same frame as the pause menu's own Resume option.
+        if (Input::pauseIsPressed) { sGameState = kStatePlaying; return; }
+        if (Input::jumpWasPressed)
+        {
+            if (sMenuCursor == 0)
+            {
+                sGameState = kStatePlaying;
+            }
+            else if (sMenuCursor == 1)
+            {
+                sPlayer.Reset(sLevel.PlayerStart());
+                sCamera.Reset(sLevel.PlayerStart());
+                sScore.StartRun();
+                sGameState = kStatePlaying;
+            }
+            else
+            {
+                sMenuCursor = 0;
+                sGameState = kStateMainMenu;
+            }
+        }
+    }
 
     void Update(float dt)
     {
         Input::Update();
 
+        switch (sGameState)
+        {
+            case kStateMainMenu: UpdateMainMenu(); return;
+            case kStateLevelSelect: UpdateLevelSelect(); return;
+            case kStateCustomizer: UpdateCustomizer(); return;
+            case kStatePauseMenu: UpdatePauseMenu(); return;
+            case kStatePlaying: break;
+        }
+
         // On PS3, gSampleApp.isPause (toggled by the SDK's own SampleBasic
-        // template on Start, independent of this) and sPaused stay in
+        // template on Start, independent of this) and this state stay in
         // lockstep automatically: both are edge-triggered off the same
         // underlying pad state in the same frame (main_ps3.cpp calls
         // Update() every frame regardless of gSampleApp.isPause -- only
         // isSysMenu gates it there, since that's an OS-level concern with no
-        // PC equivalent). This is also the first real pause implementation
-        // PC has had; previously Input::pauseIsPressed was read but never
-        // consumed anywhere.
-        if (Input::pauseIsPressed) sPaused = !sPaused;
-        if (sPaused) return;
+        // PC equivalent).
+        if (Input::pauseIsPressed)
+        {
+            sMenuCursor = 0;
+            sGameState = kStatePauseMenu;
+            return;
+        }
 
         if (Input::restartIsPressed)
         {
@@ -265,12 +385,14 @@ namespace App
                 // ScoreTracker doesn't know which level it's tracking, so
                 // the persistence write happens here instead.
                 Save::SetBest(sLevelIndex, sScore.PersonalBest());
-                // No level-select menu yet (see TODO.md) -- advance straight
-                // to the next level, wrapping after the last placeholder.
-                // LoadLevelByIndex resets the player away from this trigger,
-                // so there's no same-frame re-trigger risk.
-                sLevelIndex = (sLevelIndex + 1) % LevelData::PlaceholderLevelCount();
-                LoadLevelByIndex(sLevelIndex);
+                // Now that a real level-select menu exists, return to it
+                // instead of auto-advancing -- the auto-advance was only
+                // ever a stand-in for the missing menu (see TODO.md), and
+                // the real source's LevelEndTrigger doesn't auto-advance
+                // either (it just stops the timer; level choice is
+                // separate, number-key-driven in the source).
+                sMenuCursor = sLevelIndex;
+                sGameState = kStateLevelSelect;
             }
             return;
         }
@@ -361,19 +483,19 @@ namespace App
         Render::DrawUIText(sFontUI, 0.03f, 0.25f, line, 0xFFC0C0C0);
 
         Render::DrawUIText(sFontUI, 0.03f, 0.29f, "Bronze: any", 0xFFCD7F32);
-
-        // PS3 already gets a "PAUSE" indicator for free from the SDK
-        // template's own onDbgfont (see main_ps3.cpp) -- this is the PC
-        // build's equivalent, driven by the same shared sPaused flag.
-        if (sPaused)
-            Render::DrawUIText(sFontUI, 0.42f, 0.46f, "PAUSED", 0xFFFFFFFF, 1.5f);
+        // "PAUSED" itself is now the pause menu's own title (DrawPauseMenuOverlay,
+        // called separately from Draw()'s dispatcher) rather than a flag checked
+        // here -- the old sPaused bool is gone, replaced by GameState.
     }
 
-    void Draw()
+    // Everything that used to be the whole of Draw() before menu states
+    // were added -- BeginFrame/EndFrame now live in the dispatcher below,
+    // since menu screens need a frame too but don't have a real sCamera/
+    // sLevel to read from yet (nothing's loaded until Play is picked).
+    static void DrawGameplayWorld()
     {
         Vec2 camPos = sCamera.Position();
         float orthoSize = sCamera.OrthoSize();
-        Render::BeginFrame(camPos, orthoSize);
 
         // Cave background, tiled loosely behind everything and following the
         // camera so it always fills the screen -- replaces the flat navy
@@ -421,6 +543,10 @@ namespace App
         // confirm this reads right once they're back -- see TODO.md.
         bool flip = sPlayer.IsFlipped();
 
+        // Customizer color -- applied to clothing surfaces only (Body/Arm/
+        // Leg/Shoulder/Shorts), not skin/hair/accessories.
+        unsigned int clothColor = kPlayerColors[sPlayerColorIndex];
+
         Vec2 shoulderL = bodyPos + RotateAround(kShoulderOffsetLeft, Vec2(0, 0), bodyRotZ);
         Vec2 shoulderR = bodyPos + RotateAround(kShoulderOffsetRight, Vec2(0, 0), bodyRotZ);
         Vec2 hipL = bodyPos + RotateAround(kHipOffsetLeft, Vec2(0, 0), bodyRotZ);
@@ -433,8 +559,8 @@ namespace App
         // User-corrected: Leg.png's authored orientation put the left leg
         // upside down (needs +180) and the right leg needed a top/bottom
         // mirror (not left/right -- flipY, not flipX) to read correctly.
-        DrawLimb(sTexLeg, hipL, hipL + legDirL, kLimbAspect, 0xFFFFFFFF, 180.0f);
-        DrawLimb(sTexLeg, hipR, hipR + legDirR, kLimbAspect, 0xFFFFFFFF, 0.0f, false, true);
+        DrawLimb(sTexLeg, hipL, hipL + legDirL, kLimbAspect, clothColor, 180.0f);
+        DrawLimb(sTexLeg, hipR, hipR + legDirR, kLimbAspect, clothColor, 0.0f, false, true);
         // Hand.png/Feet.png are authored facing one direction (not symmetric),
         // so one side needs a horizontal mirror to match visually.
         //
@@ -461,10 +587,10 @@ namespace App
         // its own slightly-lagging rotation, ported from PlayerController.
         // UpdateHead, while still translating with the body). Draw order
         // matches the real rig hierarchy: Body -> Shorts -> Bag.
-        Render::DrawTexturedQuad(sTexBody, bodyPos, kBodySize, bodyRotZ, 0xFFFFFFFF);
+        Render::DrawTexturedQuad(sTexBody, bodyPos, kBodySize, bodyRotZ, clothColor);
 
         Vec2 shortsPos = bodyPos + RotateAround(kShortsLocalOffset, Vec2(0, 0), bodyRotZ);
-        Render::DrawTexturedQuad(sTexShorts, shortsPos, kShortsSize, bodyRotZ, 0xFFFFFFFF);
+        Render::DrawTexturedQuad(sTexShorts, shortsPos, kShortsSize, bodyRotZ, clothColor);
 
         Vec2 bagPos = bodyPos + RotateAround(kBagLocalOffset, Vec2(0, 0), bodyRotZ);
         Render::DrawTexturedQuad(sTexBag, bagPos, kBagSize, bodyRotZ, 0xFFFFFFFF);
@@ -477,8 +603,8 @@ namespace App
         // visually correct regardless of rig proportion guesses.
         // User-corrected: right arm's baked-in shading was on the wrong
         // side (top instead of bottom) -- mirrored.
-        DrawLimb(sTexArm, shoulderL, sPlayer.HandWorldLeft(), kLimbAspect, 0xFFFFFFFF);
-        DrawLimb(sTexArm, shoulderR, sPlayer.HandWorldRight(), kLimbAspect, 0xFFFFFFFF, 0.0f, true);
+        DrawLimb(sTexArm, shoulderL, sPlayer.HandWorldLeft(), kLimbAspect, clothColor);
+        DrawLimb(sTexArm, shoulderR, sPlayer.HandWorldRight(), kLimbAspect, clothColor, 0.0f, true);
 
         // Shoulder caps drawn after the arms, on top, to cover the arm/body
         // seam. Shoulder.png is a dome (rounded top, flat bottom as authored)
@@ -490,8 +616,8 @@ namespace App
         // swapped which one mirrors (right now mirrors, left no longer does).
         float shoulderCapAngleL = AngleAlong(shoulderL - sPlayer.HandWorldLeft());
         float shoulderCapAngleR = AngleAlong(shoulderR - sPlayer.HandWorldRight());
-        Render::DrawTexturedQuad(sTexShoulder, shoulderL, kShoulderCapSize, shoulderCapAngleL, 0xFFFFFFFF);
-        Render::DrawTexturedQuad(sTexShoulder, shoulderR, kShoulderCapSize, shoulderCapAngleR, 0xFFFFFFFF, true);
+        Render::DrawTexturedQuad(sTexShoulder, shoulderL, kShoulderCapSize, shoulderCapAngleL, clothColor);
+        Render::DrawTexturedQuad(sTexShoulder, shoulderR, kShoulderCapSize, shoulderCapAngleR, clothColor, true);
 
         // Hands, tinted by grip state (ported from PlayerController.SetHandsColor).
         // Hand.png's real pivot is at its own bottom edge (wrist), not
@@ -530,7 +656,121 @@ namespace App
         Render::DrawTexturedQuad(sTexHand, sPlayer.HandWorldRight() + handOffsetR, kHandSize, handAngleR, TintForHand(sPlayer.RightHandColor()), !flip);
 
         DrawUIOverlay();
+    }
 
+    // Simple centered menu list: title + N selectable lines, cursor shown
+    // as "> " in front of the selected one. Same fixed camera/zoom for
+    // every menu screen (no sCamera/sLevel to read from yet).
+    static void BeginMenuFrame()
+    {
+        Render::BeginFrame(Vec2(0.0f, 0.0f), 6.0f);
+    }
+
+    static void DrawMenuList(const char *title, const char **items, int count, int cursor)
+    {
+        Render::DrawUIText(sFontUI, 0.38f, 0.15f, title, 0xFFFFFFFF, 1.4f);
+        for (int i = 0; i < count; i++)
+        {
+            char line[64];
+            snprintf(line, sizeof(line), "%s%s", (i == cursor) ? "> " : "  ", items[i]);
+            unsigned int color = (i == cursor) ? 0xFF40E0E0 : 0xFFE0E0E0;
+            Render::DrawUIText(sFontUI, 0.38f, 0.32f + i * 0.07f, line, color, 1.1f);
+        }
+        Render::DrawUIText(sFontUI, 0.30f, 0.85f, "Left/Right: move   Jump: select   Restart: back", 0xFFA0A0A0, 0.8f);
+    }
+
+    static void DrawMainMenu()
+    {
+        BeginMenuFrame();
+        static const char *kItems[] = { "Play", "Select Level", "Customize" };
+        DrawMenuList("CRUX", kItems, 3, sMenuCursor);
+        Render::EndFrame();
+    }
+
+    static void DrawLevelSelect()
+    {
+        BeginMenuFrame();
+        char labels[8][16];
+        const char *items[8];
+        int count = LevelData::PlaceholderLevelCount();
+        for (int i = 0; i < count; i++)
+        {
+            snprintf(labels[i], sizeof(labels[i]), "Level %d", i + 1);
+            items[i] = labels[i];
+        }
+        DrawMenuList("SELECT LEVEL", items, count, sMenuCursor);
+        Render::EndFrame();
+    }
+
+    // Live rest-pose preview so the color choice is visible while cycling
+    // -- draws the rig directly with fixed constants rather than through
+    // sPlayer, since sPlayer may not be Reset() yet if Play hasn't been
+    // picked (its default-constructed state isn't a real rest pose).
+    static void DrawCustomizer()
+    {
+        BeginMenuFrame();
+
+        Render::DrawUIText(sFontUI, 0.38f, 0.10f, "CUSTOMIZE", 0xFFFFFFFF, 1.4f);
+
+        unsigned int clothColor = kPlayerColors[sPlayerColorIndex];
+        Vec2 bodyPos(0.0f, -0.5f);
+        float bodyRotZ = 0.0f;
+
+        Vec2 shoulderL = bodyPos + kShoulderOffsetLeft;
+        Vec2 shoulderR = bodyPos + kShoulderOffsetRight;
+        Vec2 hipL = bodyPos + kHipOffsetLeft;
+        Vec2 hipR = bodyPos + kHipOffsetRight;
+        Vec2 handL = bodyPos + kHandOffsetLeft;
+        Vec2 handR = bodyPos + kHandOffsetRight;
+        Vec2 legDir(0.0f, -kLegLength);
+
+        DrawLimb(sTexLeg, hipL, hipL + legDir, kLimbAspect, clothColor, 180.0f);
+        DrawLimb(sTexLeg, hipR, hipR + legDir, kLimbAspect, clothColor, 0.0f, false, true);
+        Render::DrawTexturedQuad(sTexFeet, hipL + legDir, kFeetSize, 0.0f, 0xFFFFFFFF, true);
+        Render::DrawTexturedQuad(sTexFeet, hipR + legDir, kFeetSize, 0.0f, 0xFFFFFFFF, false);
+
+        Render::DrawTexturedQuad(sTexBody, bodyPos, kBodySize, bodyRotZ, clothColor);
+        Vec2 shortsPos = bodyPos + kShortsLocalOffset;
+        Render::DrawTexturedQuad(sTexShorts, shortsPos, kShortsSize, bodyRotZ, clothColor);
+        Vec2 bagPos = bodyPos + kBagLocalOffset;
+        Render::DrawTexturedQuad(sTexBag, bagPos, kBagSize, bodyRotZ, 0xFFFFFFFF);
+        Vec2 headPos = bodyPos + kHeadLocalOffset;
+        Render::DrawTexturedQuad(sTexHead, headPos, kHeadSize, bodyRotZ, 0xFFFFFFFF);
+
+        DrawLimb(sTexArm, shoulderL, handL, kLimbAspect, clothColor);
+        DrawLimb(sTexArm, shoulderR, handR, kLimbAspect, clothColor, 0.0f, true);
+        float capAngleL = AngleAlong(shoulderL - handL);
+        float capAngleR = AngleAlong(shoulderR - handR);
+        Render::DrawTexturedQuad(sTexShoulder, shoulderL, kShoulderCapSize, capAngleL, clothColor);
+        Render::DrawTexturedQuad(sTexShoulder, shoulderR, kShoulderCapSize, capAngleR, clothColor, true);
+        Render::DrawTexturedQuad(sTexHand, handL, kHandSize, 0.0f, 0xFFFFFFFF, true);
+        Render::DrawTexturedQuad(sTexHand, handR, kHandSize, 0.0f, 0xFFFFFFFF, false);
+
+        Render::DrawUIText(sFontUI, 0.38f, 0.78f, "Left/Right: change color   Jump/Restart: back", 0xFFA0A0A0, 0.8f);
+        Render::EndFrame();
+    }
+
+    static void DrawPauseMenuOverlay()
+    {
+        static const char *kItems[] = { "Resume", "Reset Level", "Main Menu" };
+        DrawMenuList("PAUSED", kItems, 3, sMenuCursor);
+    }
+
+    void Draw()
+    {
+        switch (sGameState)
+        {
+            case kStateMainMenu: DrawMainMenu(); return;
+            case kStateLevelSelect: DrawLevelSelect(); return;
+            case kStateCustomizer: DrawCustomizer(); return;
+            case kStatePlaying:
+            case kStatePauseMenu:
+                break;
+        }
+
+        Render::BeginFrame(sCamera.Position(), sCamera.OrthoSize());
+        DrawGameplayWorld();
+        if (sGameState == kStatePauseMenu) DrawPauseMenuOverlay();
         Render::EndFrame();
     }
 }

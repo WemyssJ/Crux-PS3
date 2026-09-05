@@ -14,6 +14,54 @@ the project root, that's a bug, not intended.
 
 ## Done
 
+- [x] **Main menu, level select, character customizer, and pause menu.**
+      No C# equivalent to port here — the real game has no such scripts
+      among `Assets/Scripts` (`SceneController` just jumps straight into
+      whichever scene is loaded), so this whole flow is new, not a port.
+      Added a `GameState` enum (`kStateMainMenu`, `kStateLevelSelect`,
+      `kStateCustomizer`, `kStatePlaying`, `kStatePauseMenu`) driving both
+      `Update()` and `Draw()` dispatch. Kept deliberately simple: text-list
+      menus using the existing `Render::DrawUIText`/`DrawQuad` primitives,
+      navigated with Left/Right (already edge-triggered, reused as-is) to
+      move the cursor, Jump to confirm, Restart to back out — no new input
+      actions needed.
+      - **Main Menu**: Play / Select Level / Customize. `Init()` now stops
+        here instead of eagerly loading level 0.
+      - **Level Select**: lists the `PlaceholderLevelCount()` levels by
+        number; confirming loads that level and starts play. Reaching a
+        level's end trigger now returns here (with the cursor on the
+        just-finished level) instead of auto-advancing to the next one —
+        the auto-advance was only ever a stand-in for this missing menu
+        (see the item below), and the real source's `LevelEndTrigger`
+        doesn't auto-advance either (confirmed earlier this session via
+        source comparison — it just stops the timer; level choice is a
+        separate, number-key-driven `SceneController.LoadLevel` call).
+      - **Customizer**: "colours for now" per the request — a small fixed
+        palette (`kPlayerColors`, 6 entries including the as-authored
+        default) cycled with Left/Right, applied as the tint on the
+        clothing surfaces only (Body/Arm/Leg/Shoulder/Shorts — not
+        Head/Hand/Feet/Bag, which keep their own authored colors/grip-
+        state tinting). Shows a live rest-pose preview using the rig
+        constants directly (not `sPlayer`, which may not be `Reset()` yet
+        if Play hasn't been picked) so the color choice is visible while
+        cycling. Selection isn't persisted across launches yet (resets to
+        default each run) — worth wiring into `Save::` if that matters.
+      - **Pause Menu**: replaces the old bare "PAUSED" text with a real
+        menu (Resume / Reset Level / Main Menu) drawn as an overlay on top
+        of the still-visible gameplay world (`DrawGameplayWorld()` is now
+        a standalone function reused by both the normal-play and paused-
+        overlay draw paths). Pause still toggles it directly (edge-
+        triggered off the same pad state as before), and Resume is just
+        the same transition reachable two ways.
+      All four screens verified via rebuild + screenshot (temporarily
+      forcing the initial `GameState`/color index to check each one,
+      reverted before committing — same pattern as other state-forcing
+      verifications this session). Full `build.bat` pass green on both
+      targets, root clean.
+      **Not verified**: real button navigation (Left/Right/Jump/Restart
+      actually working *as menu input*, as opposed to gameplay input) —
+      same synthetic-input-injection limitation flagged elsewhere in this
+      file; needs a live check.
 - [x] Verified the real PS3 SDK toolchain end-to-end (SN GCC, Cg shader
       compiler, `make_fself`) — see plan file for the MSYS2/`make` story.
 - [x] Core swing/flight/flip physics ported 1:1 from `PlayerController.cs`
