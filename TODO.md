@@ -140,6 +140,28 @@ the project root, that's a bug, not intended.
       `StopRun()` in both versions, not a bug. One clarification is worth
       its own note above (see item 3's "More climbing levels" — the
       auto-advance-to-next-level behavior isn't from the source at all).
+- [x] **Up/Down input-semantics bug, found via source comparison.**
+      `InputManager.cs`'s `Update()` uses `WasPressedThisFrame()` (edge-
+      triggered) for every action *except* `upIsPressed`/`downIsPressed`,
+      which use `IsPressed()` (continuous hold) — the only two actions
+      with this distinction. Both `input_pc.cpp` and `input_ps3.cpp` had
+      them wired as edge-triggered (`Pressed()` / `cellPadUtilButton
+      PressedOnce`), matching every *other* action but missing this one
+      exception. Concretely: in the source, holding Up while swinging into
+      position triggers the both-hands-attach the *moment* both hands
+      start overlapping a wall, however many frames after the button was
+      first pressed; with edge-triggered semantics, the single press-frame
+      is wasted if it lands even one frame too early, and the attach can
+      never fire without releasing and re-pressing at exactly the right
+      instant — a real, meaningfully stricter (and wrong) input-timing
+      requirement. Fixed by switching both backends to held-state
+      (`Held()` / `cellPadUtilButtonPressed`) for just these two fields.
+      Both targets rebuild clean, full `build.bat` pass green, static
+      screenshot confirms no regression at rest (no keys held, so nothing
+      should look different — and doesn't). **Not confirmed with a real
+      held-Up-then-swing-into-position test** (needs live play) but this
+      is a source-comparison bug fix backed by an exact line-for-line
+      read of `InputManager.cs`, not a guess.
 
 ## Open questions for the user (don't block on these — keep working, just flag)
 

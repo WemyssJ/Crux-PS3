@@ -54,8 +54,12 @@ namespace Input
         rightIsPressed = cellPadUtilButtonPressedOnce(PAD, CELL_UTIL_BUTTON_RIGHT);
 
         flipIsPressed = cellPadUtilButtonPressedOnce(PAD, CELL_UTIL_BUTTON_SQUARE);
-        upIsPressed = cellPadUtilButtonPressedOnce(PAD, CELL_UTIL_BUTTON_TRIANGLE);
-        downIsPressed = cellPadUtilButtonPressedOnce(PAD, CELL_UTIL_BUTTON_CIRCLE);
+        // InputManager.cs uses IsPressed() (continuous hold) for these two,
+        // not WasPressedThisFrame() like every other action -- so holding
+        // Up/Down and waiting for the grip condition to become true works
+        // in the source; matching that here (held, not edge-triggered).
+        upIsPressed = cellPadUtilButtonPressed(PAD, CELL_UTIL_BUTTON_TRIANGLE);
+        downIsPressed = cellPadUtilButtonPressed(PAD, CELL_UTIL_BUTTON_CIRCLE);
 
         restartIsPressed = cellPadUtilButtonPressedOnce(PAD, CELL_UTIL_BUTTON_SELECT);
         pauseIsPressed = cellPadUtilButtonPressedOnce(PAD, CELL_UTIL_BUTTON_START);

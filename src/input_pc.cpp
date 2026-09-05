@@ -67,8 +67,12 @@ namespace Input
         jumpWasReleased = Released(state, SDL_SCANCODE_SPACE, SDL_SCANCODE_SPACE);
 
         flipIsPressed = Pressed(state, SDL_SCANCODE_X, SDL_SCANCODE_X);
-        upIsPressed = Pressed(state, SDL_SCANCODE_UP, SDL_SCANCODE_W);
-        downIsPressed = Pressed(state, SDL_SCANCODE_DOWN, SDL_SCANCODE_S);
+        // InputManager.cs uses IsPressed() (continuous hold) for these two,
+        // not WasPressedThisFrame() like every other action -- so holding
+        // Up/Down and waiting for the grip condition to become true works
+        // in the source; matching that here (Held, not Pressed).
+        upIsPressed = Held(state, SDL_SCANCODE_UP, SDL_SCANCODE_W);
+        downIsPressed = Held(state, SDL_SCANCODE_DOWN, SDL_SCANCODE_S);
 
         restartIsPressed = Pressed(state, SDL_SCANCODE_R, SDL_SCANCODE_R);
         pauseIsPressed = Pressed(state, SDL_SCANCODE_RETURN, SDL_SCANCODE_RETURN);
