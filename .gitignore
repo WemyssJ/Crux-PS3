@@ -16,4 +16,6 @@ save.dat
 data/gtf/
 *.dds
 Crux PS3 Port/
-Crux PD Demo V13/
+
+# Unity demo build is tracked despite the blanket rules above
+!Crux PD Demo V13/**
