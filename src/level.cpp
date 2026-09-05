@@ -138,7 +138,7 @@ void LevelData::LoadPlaceholderShaft()
         m_cells[(m_boundsMinX - m_boundsMinX) + ly * m_width] = true;
         m_cells[(m_boundsMaxX - 1 - m_boundsMinX) + ly * m_width] = true;
 
-        int rung = cy % 6 < 3 ? cy % 6 : -1; // ledge every 3 rows within each 6-row band
+        int rung = cy % 6; // ledge every 3 rows within each 6-row band
         if (rung == 0 || rung == 3)
         {
             bool fromLeft = ((cy / 6) % 2) == 0;
@@ -193,6 +193,13 @@ void LevelData::LoadPlaceholderCavern()
     struct Island { int cx, cy, w; };
     static const Island islands[] = {
         { -14, 5, 4 }, { -6, 8, 3 }, { 2, 6, 4 }, { 9, 10, 3 },
+        // Stepping stone: without it, the jump from {9,10,3} (right edge
+        // x=12) to the next island (left edge x=-7) is a ~16-unit gap, far
+        // beyond every other transition in this sequence (all ~4-5 units)
+        // -- an impossible jump, not just a hard one. Bridges it into two
+        // ~6-7 unit gaps instead, matching the level's actual difficulty
+        // curve.
+        { 0, 11, 3 },
         { -10, 13, 3 }, { -1, 16, 4 }, { 8, 14, 3 }, { 14, 18, 5 },
     };
     for (size_t i = 0; i < sizeof(islands) / sizeof(islands[0]); i++)

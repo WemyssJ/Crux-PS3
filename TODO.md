@@ -176,6 +176,48 @@ the project root, that's a bug, not intended.
       constants from ambiguous transform/pivot data) has been reliably
       safe and productive all session — worth reaching for again first if
       more porting issues turn up later.
+- [x] **Placeholder level-geometry review — two real bugs found and
+      fixed.** No C# equivalent exists for these (Unity's real levels are
+      Tilemap-based, not scripted), so this was pure geometry reasoning
+      over `level.cpp`'s three `LoadPlaceholder*` layouts, not source
+      comparison. Found:
+      - **Shaft**: `int rung = cy % 6 < 3 ? cy % 6 : -1;` can never equal
+        3 (anything ≥3 collapses to -1), so `if (rung == 0 || rung == 3)`
+        only ever fired at `rung==0` — ledges appeared every 6 rows
+        instead of the every-3-rows the comment describes, roughly
+        doubling the intended gap size. Fixed by using `cy % 6` directly.
+      - **Cavern**: the hardcoded island list had one badly oversized gap
+        — `{9,10,3}` (right edge x=12) to `{-10,13,3}` (left edge x=-7)
+        is a ~16-unit jump, versus ~4-5 units for every other transition
+        in the sequence, breaking the "stepping up and to the right"
+        pattern the comment describes and likely impossible to cross, not
+        just hard. Fixed by inserting one stepping-stone island
+        (`{0,11,3}`) between them, splitting it into two ~6-7 unit gaps
+        in line with the rest of the level's difficulty curve.
+      Both fixes verified: rebuilt, screenshotted the shaft (a ledge now
+      renders near the start, confirming the fix produces ledges at all)
+      and the cavern (loads and renders without corruption after the
+      array change — verified via a temporary `sLevelIndex` override to
+      load index 1, reverted before committing). Full `build.bat` pass
+      green, root clean. **Not verified by actually playing the new gap
+      sizes** (needs live play to confirm ~6-7 units is comfortably
+      crossable, not just "less obviously impossible than 16") — a
+      reasonable, well-justified estimate, not a wild guess, but still an
+      estimate.
+- **Autonomous session status: stopping here.** This has been a long,
+  productive overnight session (PS3 texture pipeline, pause feature,
+  cave-background sprite crop, camera pivot fix, up/down input-semantics
+  fix, two level-geometry bugs, a full source-comparison sweep of every
+  gameplay script, and a well-documented reverted rig-offset derivation
+  attempt — see git log for the complete history). Checked render_pc.cpp/
+  render_ps3.cpp/vec2.h once more with fresh eyes looking for further
+  genuine bugs (not style) and found nothing further worth changing
+  blind. Everything actionable without the user is done; what's left is
+  either genuinely blocked (real rig/level export data, on-hardware
+  testing, package branding) or needs live human playtesting to verify
+  (pause, flip visual read, the new gap sizes, rig proportions in
+  motion) — not something to keep guessing at. Stopping the loop cleanly
+  here rather than manufacturing further busywork.
 
 ## Open questions for the user (don't block on these — keep working, just flag)
 
