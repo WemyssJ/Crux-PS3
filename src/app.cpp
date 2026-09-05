@@ -128,11 +128,17 @@ namespace App
     // torso capsule (our renderer can only stretch the whole texture, not
     // crop to just the visible band within it, so this is an approximation
     // of "show mostly just the band," not a precise crop).
-    static const Vec2 kShortsLocalOffset(0.0f, -0.54f);
-    static const Vec2 kShortsSize(0.6f, 0.4f);
+    // Iteration 8 (user-corrected): moved down slightly, and thinner still.
+    // Iteration 9: a real zoomed-in reference screenshot of the original
+    // game arrived showing the belt as a genuinely slender band (much
+    // thinner than this project had it) -- shrunk further to match.
+    static const Vec2 kShortsLocalOffset(0.0f, -0.60f);
+    static const Vec2 kShortsSize(0.6f, 0.16f);
     // User-corrected: move out (further from centerline) and up.
-    static const Vec2 kHipOffsetLeft(-0.22f, -0.42f);
-    static const Vec2 kHipOffsetRight(0.22f, -0.42f);
+    // Iteration 2 (user-corrected): moved down slightly (paired with
+    // shorts moving down the same way).
+    static const Vec2 kHipOffsetLeft(-0.22f, -0.48f);
+    static const Vec2 kHipOffsetRight(0.22f, -0.48f);
     // Thickness deliberately wider than the raw source PNG ratio (63/512 =
     // 0.123) and leg length scaled 1.5x from 0.6 -- same "~50% too small"
     // correction as the arm reach above.

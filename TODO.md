@@ -351,6 +351,16 @@ the project root, that's a bug, not intended.
       it, so the shrunk height is a deliberate approximation of "mostly
       just the band," not a precise crop). Verified via rebuild +
       screenshot. Full `build.bat` pass green, root clean.
+      **Round 9 — a real zoomed-in reference screenshot of the original
+      game arrived** (the waist area specifically, exactly the kind of
+      close-up needed to nail this precisely instead of reasoning from
+      general reference shots). Confirmed the belt is a genuinely
+      slender band, thinner than this project had it even after round
+      8's shrink — `kShortsSize`'s height reduced again (0.28 -> 0.16).
+      Also moved `kShortsLocalOffset`/`kHipOffsetLeft/Right` down
+      slightly (y: -0.54->-0.60 and -0.42->-0.48 respectively) per
+      direct request. Verified via rebuild + screenshot, full
+      `build.bat` pass green, root clean.
       **Still flagged, not yet actionable:** "legs are floppy and should
       move with rotation when flying" was reported without enough
       specifics to safely change blind (the leg-angle math already
