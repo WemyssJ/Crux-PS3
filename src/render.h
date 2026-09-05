@@ -30,10 +30,12 @@ namespace Render
     // Unity's Camera.orthographicSize).
     void BeginFrame(Vec2 camPos, float orthoHalfHeight);
     void DrawQuad(Vec2 center, Vec2 size, float rotationDeg, unsigned int argb);
-    // tintArgb 0xFFFFFFFF = no tint (draw the texture as-is). flipX mirrors
-    // the source texture horizontally before rotating (for left/right pairs
-    // like hands/feet that share one sprite authored facing one direction).
-    void DrawTexturedQuad(TextureHandle tex, Vec2 center, Vec2 size, float rotationDeg, unsigned int tintArgb, bool flipX = false);
+    // tintArgb 0xFFFFFFFF = no tint (draw the texture as-is). flipX/flipY
+    // mirror the source texture horizontally/vertically before rotating
+    // (for paired limbs that share one sprite authored facing one direction
+    // -- flipX for left/right pairs like hands/feet, flipY for the leg pair,
+    // which needs a top/bottom mirror instead).
+    void DrawTexturedQuad(TextureHandle tex, Vec2 center, Vec2 size, float rotationDeg, unsigned int tintArgb, bool flipX = false, bool flipY = false);
 
     // UI text overlay, in normalized screen fractions (0,0 = top-left, 1,1 =
     // bottom-right) -- not world space, always reads flat regardless of

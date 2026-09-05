@@ -91,13 +91,17 @@ namespace App
     // head down to 0.56 buried it too low into the torso instead of sitting
     // on top of the neck that's already there. Raised above the original
     // 0.68 so the head anchors cleanly on top of the torso's neck.
-    static const Vec2 kHeadLocalOffset(0.0f, 0.76f);
-    static const Vec2 kShoulderOffsetLeft(-0.26f, 0.5f);
-    static const Vec2 kShoulderOffsetRight(0.26f, 0.5f);
+    // User-corrected: head needed to sit slightly higher still.
+    static const Vec2 kHeadLocalOffset(0.0f, 0.82f);
+    // User-corrected: arms/shoulders read as too close in against the
+    // torso -- pushed the anchor out slightly.
+    static const Vec2 kShoulderOffsetLeft(-0.32f, 0.5f);
+    static const Vec2 kShoulderOffsetRight(0.32f, 0.5f);
     static const Vec2 kShoulderCapSize(0.30f, 0.30f);
     // User-corrected: it's a waist pouch, not a backpack -- moved down from
     // the upper back (0, 0.1) to waist/belt height, and shrunk to match.
-    static const Vec2 kBagLocalOffset(0.0f, -0.35f);
+    // Iteration 2 (user-corrected): sat too low/deep -- raised back up some.
+    static const Vec2 kBagLocalOffset(0.0f, -0.25f);
     static const Vec2 kBagSize(0.32f, 0.32f);
     static const Vec2 kHipOffsetLeft(-0.16f, -0.5f);
     static const Vec2 kHipOffsetRight(0.16f, -0.5f);
@@ -253,14 +257,15 @@ namespace App
         return atan2f(-dir.x, dir.y) * (180.0f / CRUX_PI);
     }
 
-    static void DrawLimb(TextureHandle tex, Vec2 from, Vec2 to, float aspect, unsigned int tint)
+    static void DrawLimb(TextureHandle tex, Vec2 from, Vec2 to, float aspect, unsigned int tint,
+                         float extraAngleDeg = 0.0f, bool flipX = false, bool flipY = false)
     {
         Vec2 d = to - from;
         float length = d.magnitude();
         if (length < 1e-4f) return;
         Vec2 center = (from + to) * 0.5f;
-        float angle = AngleAlong(d);
-        Render::DrawTexturedQuad(tex, center, Vec2(length * aspect, length), angle, tint);
+        float angle = AngleAlong(d) + extraAngleDeg;
+        Render::DrawTexturedQuad(tex, center, Vec2(length * aspect, length), angle, tint, flipX, flipY);
     }
 
     static const char *ScoreTypeName(ScoreType t)
@@ -386,8 +391,11 @@ namespace App
         // PlayerController.UpdateLegs) swings them relative to straight-down.
         Vec2 legDirL = RotateAround(Vec2(0, -kLegLength), Vec2(0, 0), bodyRotZ + sPlayer.LegAngleLeft());
         Vec2 legDirR = RotateAround(Vec2(0, -kLegLength), Vec2(0, 0), bodyRotZ + sPlayer.LegAngleRight());
-        DrawLimb(sTexLeg, hipL, hipL + legDirL, kLimbAspect, 0xFFFFFFFF);
-        DrawLimb(sTexLeg, hipR, hipR + legDirR, kLimbAspect, 0xFFFFFFFF);
+        // User-corrected: Leg.png's authored orientation put the left leg
+        // upside down (needs +180) and the right leg needed a top/bottom
+        // mirror (not left/right -- flipY, not flipX) to read correctly.
+        DrawLimb(sTexLeg, hipL, hipL + legDirL, kLimbAspect, 0xFFFFFFFF, 180.0f);
+        DrawLimb(sTexLeg, hipR, hipR + legDirR, kLimbAspect, 0xFFFFFFFF, 0.0f, false, true);
         // Hand.png/Feet.png are authored facing one direction (not symmetric),
         // so one side needs a horizontal mirror to match visually.
         //
@@ -432,18 +440,24 @@ namespace App
         Render::DrawTexturedQuad(sTexShoulder, shoulderR, kShoulderCapSize, shoulderCapAngleR, 0xFFFFFFFF);
 
         // Hands, tinted by grip state (ported from PlayerController.SetHandsColor).
-        // Fixed: the wrist-ward offset was pulling straight "down" in body
-        // space regardless of the arm's actual direction -- but since both
-        // the shoulder and hand-grip anchors are fixed local offsets from
-        // body, the arm's direction relative to body is itself a constant,
-        // not vertical. Pull back along that real direction instead.
-        // Mirror: only the left hand needs it (right uses Hand.png as-authored).
+        // Hand.png's real pivot is at its own bottom edge (wrist), not
+        // center -- Hand.png.meta: alignment 7, pivot {0.5, 0}, meaning the
+        // sprite's content extends outward from the wrist, not around it.
+        // Our DrawTexturedQuad always centers the quad, so to emulate a
+        // bottom-pivoted sprite we push the quad's center outward from the
+        // arm tip by half the sprite's own height, landing the wrist edge
+        // right at the tip instead of overlapping back into the arm.
+        // User-corrected: previously pulled back toward the arm instead,
+        // which put the hand sprite over the arm's own end rather than
+        // continuing past it.
         Vec2 armDirLocalL = (kHandOffsetLeft - kShoulderOffsetLeft).normalized();
         Vec2 armDirLocalR = (kHandOffsetRight - kShoulderOffsetRight).normalized();
-        Vec2 handOffsetL = RotateAround(armDirLocalL * (-kHandSize.y * 0.35f), Vec2(0, 0), bodyRotZ);
-        Vec2 handOffsetR = RotateAround(armDirLocalR * (-kHandSize.y * 0.35f), Vec2(0, 0), bodyRotZ);
+        Vec2 handOffsetL = RotateAround(armDirLocalL * (kHandSize.y * 0.5f), Vec2(0, 0), bodyRotZ);
+        Vec2 handOffsetR = RotateAround(armDirLocalR * (kHandSize.y * 0.5f), Vec2(0, 0), bodyRotZ);
+        // User-corrected: both hands need the same horizontal mirror, not
+        // just the left one.
         Render::DrawTexturedQuad(sTexHand, sPlayer.HandWorldLeft() + handOffsetL, kHandSize, bodyRotZ, TintForHand(sPlayer.LeftHandColor()), !flip);
-        Render::DrawTexturedQuad(sTexHand, sPlayer.HandWorldRight() + handOffsetR, kHandSize, bodyRotZ, TintForHand(sPlayer.RightHandColor()), flip);
+        Render::DrawTexturedQuad(sTexHand, sPlayer.HandWorldRight() + handOffsetR, kHandSize, bodyRotZ, TintForHand(sPlayer.RightHandColor()), !flip);
 
         DrawUIOverlay();
 

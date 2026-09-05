@@ -218,6 +218,37 @@ the project root, that's a bug, not intended.
   (pause, flip visual read, the new gap sizes, rig proportions in
   motion) — not something to keep guessing at. Stopping the loop cleanly
   here rather than manufacturing further busywork.
+- [x] **Live side-by-side rig corrections (user playtesting both games at
+      once).** A batch of concrete, directly-observed fixes:
+      - Left leg was upside down (`Leg.png` authored orientation) — added
+        a +180° rotation, left-leg-only.
+      - Right leg needed a top/bottom mirror, not left/right — added real
+        `flipY` support to `Render::DrawTexturedQuad` (both PC via
+        `SDL_FLIP_VERTICAL` and PS3 via a V-coordinate swap, alongside the
+        existing `flipX`), used for the right leg only.
+      - Shoulders/arms read as too close against the torso — widened
+        `kShoulderOffsetLeft/Right`'s X magnitude (0.26 -> 0.32).
+      - Head needed to sit slightly higher — raised `kHeadLocalOffset.y`
+        (0.76 -> 0.82).
+      - Hands were anchored overlapping the arm's own end instead of
+        continuing past it — `Hand.png`'s real pivot is at its own bottom
+        edge (wrist), not center, so the previous pull-back-toward-the-arm
+        offset had it backwards; now pushes the quad's center outward from
+        the arm tip by half the hand's own size instead, matching that
+        pivot convention.
+      - Both hands need the same horizontal mirror (previously only the
+        left one got it, right used `Hand.png` as-authored) — both now
+        use the same flip.
+      - Bag/belt sat too low — reduced `kBagLocalOffset.y` magnitude
+        (-0.35 -> -0.25).
+      All verified via rebuild + screenshot at rest and mid-swing; full
+      `build.bat` pass green on both targets, root clean.
+      **Still flagged, not yet actionable:** user reported "feet are
+      wrong" and "legs are floppy and should move with rotation when
+      flying" without enough specifics to safely change blind (the leg-
+      angle math already includes `bodyRotZ`, so "floppy" likely means
+      something more specific than what that suggests) — need a
+      screenshot or more detail before touching either.
 
 ## Open questions for the user (don't block on these — keep working, just flag)
 

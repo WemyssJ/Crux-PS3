@@ -144,7 +144,7 @@ namespace Render
         SDL_RenderCopyEx(sRenderer, sWhite, NULL, &dst, -rotationDeg, NULL, SDL_FLIP_NONE);
     }
 
-    void DrawTexturedQuad(TextureHandle tex, Vec2 center, Vec2 size, float rotationDeg, unsigned int tintArgb, bool flipX)
+    void DrawTexturedQuad(TextureHandle tex, Vec2 center, Vec2 size, float rotationDeg, unsigned int tintArgb, bool flipX, bool flipY)
     {
         if (tex == 0 || tex > sTextureCount || !sTextures[tex - 1])
         {
@@ -162,7 +162,10 @@ namespace Render
         SDL_SetTextureColorMod(t, r, g, b);
         SDL_SetTextureAlphaMod(t, a);
 
-        SDL_RenderCopyEx(sRenderer, t, NULL, &dst, -rotationDeg, NULL, flipX ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE);
+        int flip = SDL_FLIP_NONE;
+        if (flipX) flip |= SDL_FLIP_HORIZONTAL;
+        if (flipY) flip |= SDL_FLIP_VERTICAL;
+        SDL_RenderCopyEx(sRenderer, t, NULL, &dst, -rotationDeg, NULL, (SDL_RendererFlip)flip);
     }
 
     void DrawUIText(FontHandle font, float nx, float ny, const char *text, unsigned int colorArgb, float scale)

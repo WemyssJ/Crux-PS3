@@ -241,7 +241,7 @@ namespace Render
         sQuadCount++;
     }
 
-    void DrawTexturedQuad(TextureHandle tex, Vec2 center, Vec2 size, float rotationDeg, unsigned int tintArgb, bool flipX)
+    void DrawTexturedQuad(TextureHandle tex, Vec2 center, Vec2 size, float rotationDeg, unsigned int tintArgb, bool flipX, bool flipY)
     {
         if (tex == 0 || tex > sTextureCount)
         {
@@ -260,11 +260,15 @@ namespace Render
         // GTF row 0 is the image's top row, and local +Y is "up" -- so the
         // top-left vertex (index 3) maps to uv(0,0), bottom-left (index 0) to
         // uv(0,1). flipX swaps the U side, mirroring the source image
-        // horizontally (matches SDL_FLIP_HORIZONTAL on the PC backend).
+        // horizontally (matches SDL_FLIP_HORIZONTAL on the PC backend);
+        // flipY swaps the V side the same way for a top/bottom mirror
+        // (matches SDL_FLIP_VERTICAL).
         float u0 = flipX ? 1.0f : 0.0f;
         float u1 = flipX ? 0.0f : 1.0f;
         float us[4] = { u0, u1, u1, u0 };
-        float vs[4] = { 1.0f, 1.0f, 0.0f, 0.0f };
+        float v0 = flipY ? 0.0f : 1.0f;
+        float v1 = flipY ? 1.0f : 0.0f;
+        float vs[4] = { v0, v0, v1, v1 };
 
         TexQuadVertex *v = sVBTexPtr + sTexQuadCount * 4;
         for (int i = 0; i < 4; i++)
