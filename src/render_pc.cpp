@@ -104,8 +104,10 @@ namespace Render
         SDL_Event e;
         while (SDL_PollEvent(&e))
         {
+            // Escape is no longer a hard quit -- it's Input::backIsPressed
+            // now (opens the pause menu / backs out of menus instead), so
+            // only the window's own close button/Alt+F4 exits the app.
             if (e.type == SDL_QUIT) sQuit = true;
-            if (e.type == SDL_KEYDOWN && e.key.keysym.scancode == SDL_SCANCODE_ESCAPE) sQuit = true;
         }
 
         sCamPos = camPos;

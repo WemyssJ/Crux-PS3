@@ -186,7 +186,8 @@ namespace App
     static const Vec2 kBagLocalOffset(0.11f, -0.37f);
     // Real size from Bag.png's actual crop (94x102 px @ 256 px/unit import,
     // see Bag.png.meta) x0.6 scale = (0.220, 0.239).
-    static const Vec2 kBagSize(0.22f, 0.24f);
+    // User-corrected: reads too small in the actual rig -- scaled up ~1.4x.
+    static const Vec2 kBagSize(0.31f, 0.34f);
     // Shorts.png -- the waist BELT band (previously missing entirely; the
     // small pouch above is Bag.png, a separate sprite/layer worn near it).
     // Real Player.prefab data: Shorts is a direct child of Body at local
@@ -215,7 +216,8 @@ namespace App
     // 0.123) and leg length scaled 1.5x from 0.6 -- same "~50% too small"
     // correction as the arm reach above.
     static const float kLimbAspect = 0.185f;
-    static const float kLegLength = 0.9f;
+    // User-corrected: legs read as too short -- scaled up from 0.9.
+    static const float kLegLength = 1.2f;
     // Matched against a reference gameplay screenshot, then nudged back up
     // slightly (user-reported still wrong after the previous pass).
     static const Vec2 kHandSize(0.22f, 0.22f);
@@ -346,7 +348,7 @@ namespace App
             LoadLevelByIndex(sLevelIndex);
             sGameState = kStatePlaying;
         }
-        if (Input::restartIsPressed)
+        if (Input::restartIsPressed || Input::backIsPressed)
         {
             sMenuCursor = 0;
             sGameState = kStateMainMenu;
@@ -380,7 +382,7 @@ namespace App
                 sColorGridCursor = sLimbColorIndex[sCustomizerLimb];
                 sCustomizerStep = 1;
             }
-            else if (Input::restartIsPressed)
+            else if (Input::restartIsPressed || Input::backIsPressed)
             {
                 sMenuCursor = 0;
                 sGameState = kStateMainMenu;
@@ -404,7 +406,7 @@ namespace App
                 Save::SetLimbColor(sCustomizerLimb, sColorGridCursor);
                 sCustomizerStep = 0;
             }
-            else if (Input::restartIsPressed)
+            else if (Input::restartIsPressed || Input::backIsPressed)
             {
                 sCustomizerStep = 0; // cancel, no change
             }
@@ -416,9 +418,10 @@ namespace App
         const int kCount = 3; // Resume, Reset Level, Main Menu
         if (Input::leftIsPressed) sMenuCursor = (sMenuCursor + kCount - 1) % kCount;
         if (Input::rightIsPressed) sMenuCursor = (sMenuCursor + 1) % kCount;
-        // Pause toggles back to gameplay too, same edge-triggered pad state
-        // in the same frame as the pause menu's own Resume option.
-        if (Input::pauseIsPressed) { sGameState = kStatePlaying; return; }
+        // Pause (or Escape) toggles back to gameplay too, same edge-
+        // triggered pad state in the same frame as the pause menu's own
+        // Resume option.
+        if (Input::pauseIsPressed || Input::backIsPressed) { sGameState = kStatePlaying; return; }
         if (Input::jumpWasPressed)
         {
             if (sMenuCursor == 0)
@@ -460,7 +463,7 @@ namespace App
         // Update() every frame regardless of gSampleApp.isPause -- only
         // isSysMenu gates it there, since that's an OS-level concern with no
         // PC equivalent).
-        if (Input::pauseIsPressed)
+        if (Input::pauseIsPressed || Input::backIsPressed)
         {
             sMenuCursor = 0;
             sGameState = kStatePauseMenu;
@@ -527,21 +530,21 @@ namespace App
     {
         return Input::ControllerConnected()
             ? "D-Pad: Move   Cross/Start: Select   Select: Back"
-            : "Left/Right: move   Jump/Enter: select   Restart: back";
+            : "Left/Right: move   Jump/Enter: select   Restart/Esc: back";
     }
 
     static const char *LevelSelectHint()
     {
         return Input::ControllerConnected()
             ? "D-Pad: Move   Cross/Start: Select   Select: Back"
-            : "Left/Right: move   Up/Down: row   Jump/Enter: select   Restart: back";
+            : "Left/Right: move   Up/Down: row   Jump/Enter: select   Restart/Esc: back";
     }
 
     static const char *GridHint()
     {
         return Input::ControllerConnected()
             ? "D-Pad: Move   Cross/Start: Confirm   Select: Cancel"
-            : "Arrows: move   Jump/Enter: confirm   Restart: cancel";
+            : "Arrows: move   Jump/Enter: confirm   Restart/Esc: cancel";
     }
 
     static unsigned int ColorForCell()
@@ -739,7 +742,13 @@ namespace App
         Render::DrawTexturedQuad(sTexBag, bagPos, kBagSize, bodyRotZ, 0xFFFFFFFF);
 
         Vec2 headPos = bodyPos + RotateAround(kHeadLocalOffset, Vec2(0, 0), bodyRotZ);
-        Render::DrawTexturedQuad(sTexHead, headPos, kHeadSize, sPlayer.HeadRotZ(), 0xFFFFFFFF);
+        // User-corrected: the ported head-lag (Player::HeadRotZ(), a
+        // delayed/smoothed follower of bodyRotZ, matching PlayerController.
+        // cs's UpdateHead) visibly disconnected the head from the body at
+        // the neck during a swing -- the head's rotation lagging behind
+        // its own (bodyRotZ-driven) position made the neck seam mismatch.
+        // Render rigidly attached (bodyRotZ, not the lagging value) instead.
+        Render::DrawTexturedQuad(sTexHead, headPos, kHeadSize, bodyRotZ, 0xFFFFFFFF);
 
         // Arms: geometrically aimed from the shoulder anchor straight at the
         // actual grip point (Player::HandWorldLeft/Right), so they're always
@@ -763,22 +772,18 @@ namespace App
         Render::DrawTexturedQuad(sTexShoulder, shoulderR, kShoulderCapSize, shoulderCapAngleR, armsColor, true);
 
         // Hands, tinted by grip state (ported from PlayerController.SetHandsColor).
-        // Hand.png's real pivot is at its own bottom edge (wrist), not
-        // center -- Hand.png.meta: alignment 7, pivot {0.5, 0}, meaning the
-        // sprite's content extends outward from the wrist, not around it.
-        // Our DrawTexturedQuad always centers the quad, so to emulate a
-        // bottom-pivoted sprite we push the quad's center outward from the
-        // arm tip by half the sprite's own height, landing the wrist edge
-        // right at the tip instead of overlapping back into the arm.
-        // User-corrected: previously pulled back toward the arm instead,
-        // which put the hand sprite over the arm's own end rather than
-        // continuing past it.
+        // User-corrected: the earlier bottom-pivot emulation (pushing the
+        // hand quad outward by half its own height, to land Hand.png's real
+        // wrist-edge pivot at the arm tip) made the swing PIVOT read as
+        // sitting at the arm's end instead of the center of the hand --
+        // the actual grip point (HandWorldLeft/Right) should visually be
+        // the hand's own center, not its wrist edge. Draw centered on the
+        // grip point directly, no outward push (matches how the customizer
+        // preview already drew hands, untouched by this same offset).
         Vec2 armDirLocalL = (kHandOffsetLeft - kShoulderOffsetLeft).normalized();
         Vec2 armDirLocalR = (kHandOffsetRight - kShoulderOffsetRight).normalized();
         Vec2 worldArmDirL = RotateAround(armDirLocalL, Vec2(0, 0), bodyRotZ);
         Vec2 worldArmDirR = RotateAround(armDirLocalR, Vec2(0, 0), bodyRotZ);
-        Vec2 handOffsetL = worldArmDirL * (kHandSize.y * 0.5f);
-        Vec2 handOffsetR = worldArmDirR * (kHandSize.y * 0.5f);
         // User-corrected: hands were joining the arm at the thumb instead
         // of the base/wrist -- they were rotating with bodyRotZ alone,
         // ignoring the arm's own fixed local angle (the ~55deg baked into
@@ -795,8 +800,8 @@ namespace App
         // one side only, same as the original design before that edit).
         // Both then turned out to be facing the wrong way outright, so the
         // assignment swapped (left<->right) from that first fix.
-        Render::DrawTexturedQuad(sTexHand, sPlayer.HandWorldLeft() + handOffsetL, kHandSize, handAngleL, TintForHand(sPlayer.LeftHandColor()), flip);
-        Render::DrawTexturedQuad(sTexHand, sPlayer.HandWorldRight() + handOffsetR, kHandSize, handAngleR, TintForHand(sPlayer.RightHandColor()), !flip);
+        Render::DrawTexturedQuad(sTexHand, sPlayer.HandWorldLeft(), kHandSize, handAngleL, TintForHand(sPlayer.LeftHandColor()), flip);
+        Render::DrawTexturedQuad(sTexHand, sPlayer.HandWorldRight(), kHandSize, handAngleR, TintForHand(sPlayer.RightHandColor()), !flip);
 
         DrawUIOverlay();
     }

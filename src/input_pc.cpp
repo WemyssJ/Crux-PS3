@@ -7,7 +7,7 @@
 // PS3-style mapping used throughout:
 //   Left/Right arrow, A/D, D-pad, or left stick   -> leftIsHeld / rightIsHeld
 //   Space or A/Cross button                        -> jump
-//   X (key) or X/Square button                     -> flip
+//   X or F (key) or X/Square button                 -> flip
 //   Up arrow/W, D-pad up, left stick up, or Y/Triangle   -> up   (attach both hands)
 //   Down arrow/S, D-pad down, left stick down, or B/Circle -> down (detach secondary hand)
 //   R or Back/Select button                        -> restart
@@ -26,6 +26,7 @@ namespace Input
     bool downIsPressed = false;
     bool restartIsPressed = false;
     bool pauseIsPressed = false;
+    bool backIsPressed = false;
 
     static SDL_GameController *sController = NULL;
 
@@ -35,6 +36,7 @@ namespace Input
     // one source while the other toggles could misfire an extra edge.
     static bool sPrevLeft = false, sPrevRight = false, sPrevJump = false;
     static bool sPrevFlip = false, sPrevRestart = false, sPrevPause = false;
+    static bool sPrevBack = false;
 
     bool Init()
     {
@@ -107,7 +109,7 @@ namespace Input
         bool curLeft = KeyHeld(kb, SDL_SCANCODE_LEFT, SDL_SCANCODE_A) || padLeft;
         bool curRight = KeyHeld(kb, SDL_SCANCODE_RIGHT, SDL_SCANCODE_D) || padRight;
         bool curJump = KeyHeld(kb, SDL_SCANCODE_SPACE, SDL_SCANCODE_SPACE) || padJump;
-        bool curFlip = KeyHeld(kb, SDL_SCANCODE_X, SDL_SCANCODE_X) || padFlip;
+        bool curFlip = KeyHeld(kb, SDL_SCANCODE_X, SDL_SCANCODE_F) || padFlip;
         // InputManager.cs uses IsPressed() (continuous hold) for these two,
         // not WasPressedThisFrame() like every other action -- so holding
         // Up/Down and waiting for the grip condition to become true works
@@ -116,6 +118,7 @@ namespace Input
         bool curDown = KeyHeld(kb, SDL_SCANCODE_DOWN, SDL_SCANCODE_S) || padDown;
         bool curRestart = KeyHeld(kb, SDL_SCANCODE_R, SDL_SCANCODE_R) || padRestart;
         bool curPause = KeyHeld(kb, SDL_SCANCODE_RETURN, SDL_SCANCODE_RETURN) || padPause;
+        bool curBack = KeyHeld(kb, SDL_SCANCODE_ESCAPE, SDL_SCANCODE_ESCAPE);
 
         leftIsHeld = curLeft;
         leftIsPressed = curLeft && !sPrevLeft;
@@ -133,6 +136,7 @@ namespace Input
 
         restartIsPressed = curRestart && !sPrevRestart;
         pauseIsPressed = curPause && !sPrevPause;
+        backIsPressed = curBack && !sPrevBack;
 
         sPrevLeft = curLeft;
         sPrevRight = curRight;
@@ -140,6 +144,7 @@ namespace Input
         sPrevFlip = curFlip;
         sPrevRestart = curRestart;
         sPrevPause = curPause;
+        sPrevBack = curBack;
     }
 
     bool ControllerConnected()

@@ -26,6 +26,14 @@ namespace Input
     extern bool downIsPressed;
     extern bool restartIsPressed;
     extern bool pauseIsPressed;
+    // PC-only convenience (Escape key) -- no PS3 pad equivalent, always
+    // false there. App::Update() treats it as "open pause" during gameplay
+    // and "back/cancel" in every menu screen (including resuming from the
+    // pause menu itself), context-dependent since those are two different
+    // existing meanings (pauseIsPressed vs. restartIsPressed) that can't
+    // just be OR'd into both blindly -- restartIsPressed means "reset
+    // level" during gameplay, which Escape must NOT also trigger.
+    extern bool backIsPressed;
 
     bool Init();
     void Shutdown();

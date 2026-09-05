@@ -21,6 +21,7 @@ namespace Input
     bool downIsPressed = false;
     bool restartIsPressed = false;
     bool pauseIsPressed = false;
+    bool backIsPressed = false; // PC-only convenience (Escape key), no PS3 pad equivalent
 
     static const uint8_t PAD = 0;
 
