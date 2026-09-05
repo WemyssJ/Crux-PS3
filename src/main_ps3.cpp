@@ -31,7 +31,13 @@ void onFinish(void)
 
 void onUpdate(void)
 {
-    if (!gSampleApp.isPause && !gSampleApp.isSysMenu)
+    // Pause itself is handled inside App::Update (shared with the PC build,
+    // see app.cpp) -- Input::pauseIsPressed and the SDK template's own
+    // gSampleApp.isPause toggle off the same underlying pad state in the
+    // same frame, so calling Update() unconditionally here keeps them in
+    // lockstep rather than gating on gSampleApp.isPause a second time.
+    // isSysMenu (in-game XMB) has no PC equivalent, so it still gates here.
+    if (!gSampleApp.isSysMenu)
     {
         App::Update(kFixedDt);
     }

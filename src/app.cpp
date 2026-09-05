@@ -166,9 +166,23 @@ namespace App
         sLevel.Unload();
     }
 
+    static bool sPaused = false;
+
     void Update(float dt)
     {
         Input::Update();
+
+        // On PS3, gSampleApp.isPause (toggled by the SDK's own SampleBasic
+        // template on Start, independent of this) and sPaused stay in
+        // lockstep automatically: both are edge-triggered off the same
+        // underlying pad state in the same frame (main_ps3.cpp calls
+        // Update() every frame regardless of gSampleApp.isPause -- only
+        // isSysMenu gates it there, since that's an OS-level concern with no
+        // PC equivalent). This is also the first real pause implementation
+        // PC has had; previously Input::pauseIsPressed was read but never
+        // consumed anywhere.
+        if (Input::pauseIsPressed) sPaused = !sPaused;
+        if (sPaused) return;
 
         if (Input::restartIsPressed)
         {
@@ -287,6 +301,12 @@ namespace App
         Render::DrawUIText(sFontUI, 0.03f, 0.25f, line, 0xFFC0C0C0);
 
         Render::DrawUIText(sFontUI, 0.03f, 0.29f, "Bronze: any", 0xFFCD7F32);
+
+        // PS3 already gets a "PAUSE" indicator for free from the SDK
+        // template's own onDbgfont (see main_ps3.cpp) -- this is the PC
+        // build's equivalent, driven by the same shared sPaused flag.
+        if (sPaused)
+            Render::DrawUIText(sFontUI, 0.42f, 0.46f, "PAUSED", 0xFFFFFFFF, 1.5f);
     }
 
     void Draw()

@@ -73,6 +73,19 @@ the project root, that's a bug, not intended.
       `Build\PC\` and `Build\PS3\`, with zero leftover artifacts in the
       project root (verified — `move`, not `copy`, for every build output).
       A launcher copy also lives at `Build\build.bat` for discoverability.
+- [x] **Pause.** `Input::pauseIsPressed` (Return/Start) existed but was never
+      consumed anywhere — wired it into `App::Update` (shared `sPaused` flag,
+      edge-triggered toggle, early-returns before any gameplay/physics
+      update) and added a "PAUSED" overlay to the PC build's
+      `DrawUIOverlay()` (PS3 already gets an equivalent for free from the
+      SDK template's own `onDbgfont`, which prints "Crux: PAUSE" via
+      `gSampleApp.isPause`). `main_ps3.cpp`'s `onUpdate` simplified to drop
+      its own redundant `!gSampleApp.isPause` gate, since that and the
+      shared `sPaused` flag are edge-triggered off the same underlying pad
+      state in the same frame — only `isSysMenu` (in-game XMB, no PC
+      equivalent) still gates there. Both targets rebuilt clean, full
+      `build.bat` pass (PC+PS3+textures+`.pkg`) verified green afterward.
+      **Not interactively verified** — see "Open questions" below.
 
 ## Open questions for the user (don't block on these — keep working, just flag)
 
@@ -80,6 +93,19 @@ the project root, that's a bug, not intended.
   `isFlipped` actually look right in motion? This needs live play (press
   the flip key mid-swing), not a screenshot — genuinely can't verify
   further without a human at the keyboard or a way to script input timing.
+- **Pause needs a real keypress test.** Tried scripting this four different
+  ways (`SendKeys`, `keybd_event`, and `SendInput` — the last confirmed
+  successful via both its return codes and a verified genuine
+  `SetForegroundWindow` match) and none of them ever registered as a
+  keypress inside the app (a temporary debug counter on
+  `Input::pauseIsPressed` stayed at 0 every time, even though screenshots
+  and focus checks both succeeded). That points at this environment
+  sandboxing/isolating synthetic input delivery from whatever desktop the
+  window actually renders to, not a bug in the pause logic itself — the
+  toggle is a direct copy of the already-working `Pressed()` edge-detection
+  pattern already used for restart/jump/flip/up/down. Please just press
+  Enter (PC) / Start (PS3) once during a real play session to confirm it
+  pauses/unpauses and the "PAUSED" text shows.
 - **Package branding.** `packaging/package.conf`'s `Content_ID` and
   `packaging/ICON0.PNG` (currently a crop of `head.png`) are placeholders.
   Real title art/ID is a user call, not something to guess further.
@@ -93,6 +119,14 @@ the project root, that's a bug, not intended.
   context the `.pkg` runs in is unverified without the devkit. Ask if the
   polished `cellSaveData` XMB-icon experience is wanted eventually, or if
   simple file persistence is fine.
+- **PS3 textures on real hardware.** The whole PNG->DDS->GTF->
+  `cellGcmUtilLoadTexture`->textured-shader pipeline compiles, links, and
+  packages clean, and `dds2gtf` accepts the hand-written DDS with zero
+  errors -- but none of it has been seen on an actual screen yet. First
+  hardware run should specifically check: sprites appear at all (texture
+  unit binding correct), right way up / not mirrored (UV orientation
+  guess), and correct colors (vertex-color-modulate byte order, same open
+  question as the UI text color already flagged above).
 
 ## Next — can make real progress on these without the user
 
@@ -162,15 +196,44 @@ it can't be tested on hardware yet.
    runs in, saves would silently fail there. Worth an on-hardware check
    once the devkit's back on; upgrading to real `cellSaveData` (so saves
    show up properly in the XMB) is a separate, larger follow-up if wanted.
-5. **PS3 texture pipeline.** `Render::LoadTexture`/`DrawTexturedQuad` in
-   `render_ps3.cpp` are stubs (see the TODO comment there) — falls back to
-   flat-colored quads. Needs: PNG→DDS conversion (check for a usable
-   converter; `D:\PS3\host-win32\bin\dds2gtf.exe` takes DDS, not PNG, so
-   this is the missing link), `dds2gtf` → GTF, `cellGcmUtilLoadTexture`,
-   and a textured variant of `vs_quad.cg`/`fs_quad.cg` (UV attribute +
-   texture sampler — current shaders are vertex-color-only). This is the
-   biggest remaining engineering chunk and the main thing standing between
-   the PS3 build and looking like the PC build.
+5. ~~**PS3 texture pipeline.**~~ [Done, compiles+links clean] The full
+   PNG→DDS→GTF→`cellGcmUtilLoadTexture`→textured-Cg-shader chain now works,
+   verified against the real Sony tools at every step:
+   - **PNG→DDS**: no DDS encoder exists anywhere on this system (no
+     ImageMagick, NVIDIA Texture Tools, texconv), and installing one
+     wouldn't guarantee a DDS flavor `dds2gtf` actually accepts, so
+     `buildscripts/png_to_dds.ps1` hand-writes an uncompressed 32bpp BGRA
+     DDS (classic D3D "A8R8G8B8" layout) directly from a `System.Drawing`
+     bitmap — same approach as `make_param_sfo.ps1`. Header verified
+     byte-for-byte by hand against the DDS spec.
+   - **DDS→GTF**: `dds2gtf.exe` (the real SDK tool) accepts the
+     hand-written DDS with **zero errors** — real, tool-validated
+     confirmation the format is correct, not just structurally plausible.
+   - `buildscripts/make_textures.ps1` batch-converts all of
+     `data/sprites/*.png` to `data/gtf/*.gtf` (9 sprites currently); wired
+     into `build.bat` as its own stage, before the PS3 build.
+   - `render_ps3.cpp`'s `LoadTexture` now calls `cellGcmUtilLoadTexture`
+     for real (derives `data/gtf/<name>.gtf` from the PNG filename passed
+     in); `DrawTexturedQuad` builds a UV-carrying vertex buffer, binds the
+     texture via `cellGcmUtilSetTextureUnit`, and draws with a new shader
+     pair (see below) — falls back to `DrawQuad`'s flat color only if a
+     texture handle is invalid, not unconditionally like before.
+   - New `vs_quad_tex.cg`/`fs_quad_tex.cg` (modeled on the SDK's own
+     `samples/common/gcmutil/samples/dice` textured-cube shaders): pass
+     through a UV coordinate, sample via `tex2D`, modulate by vertex color
+     (reuses the existing tint mechanism, e.g. hand-color states). Compiled
+     clean through the real `sce-cgc` Cg compiler for both `sce_vp_rsx` and
+     `sce_fp_rsx` profiles.
+   - Full chain compiles and links clean end-to-end (`crux.ppu.elf` links
+     fine against the stub libs already in `PPU_LDLIBS`), and the complete
+     `build.bat` run (PC → textures → PS3 → package) succeeds with all 4
+     stages green, `.pkg` correctly includes `data/gtf/*.gtf` and both
+     shader pairs.
+   - **Not visually verified** (needs the devkit) — the *shader logic* and
+     *tool acceptance* are real and verified; whether the on-screen result
+     actually looks like the PC build (correct UV orientation, correct
+     color-mod byte order, no texture-unit state bugs) can't be confirmed
+     without hardware. Flagged in "Open questions" below.
 6. Re-run `build.bat` after each step above; keep both targets green.
 
 ## Blocked on the user — can't proceed without you
