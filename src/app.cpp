@@ -109,13 +109,15 @@ namespace App
     static TextureHandle sTexBody, sTexHead, sTexArm, sTexLeg, sTexHand, sTexFeet, sTexShoulder, sTexBag, sTexCaveBg;
     static FontHandle sFontUI;
 
-    // cave_bg.png is a whole Unity sprite atlas (multiple rock formations
-    // meant to be sliced into individual sprites via .asset metadata we
-    // don't have easy access to outside the Editor) -- drawn as one big
-    // background tile rather than sliced. Reads fine as a busy rock texture
-    // at this distance/scale; revisit with real per-sprite slicing later if
-    // the seams show. Tiled in a loose grid behind the level, each tile
-    // much bigger than a level cell since the source image itself is large.
+    // cave_bg.png is a single sprite cropped from Unity's "Cave - BigRocks1"
+    // atlas (sub-sprite _2's exact rect, per its .meta) rather than the raw
+    // 10-sprite atlas -- reads as one coherent rock silhouette when tiled
+    // instead of a jumbled sheet. Note this specific atlas isn't actually
+    // Unity's primary level background asset (that's an assembled Tilemap
+    // from several other tileset atlases); this is a placeholder chosen for
+    // being visually clean when repeated, not a faithful reproduction. Tiled
+    // in a loose grid behind the level, each tile much bigger than a level
+    // cell since the source image itself is large.
     static const float kBgTileSize = 24.0f;
 
     static unsigned int TintForHand(Player::HandColor c)

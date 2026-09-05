@@ -152,17 +152,28 @@ Ordered roughly by priority. Rebuild via `build.bat` and screenshot-verify
 (PC) after each meaningful change; keep the PS3 build compiling even where
 it can't be tested on hardware yet.
 
-1. ~~**Background rendering.**~~ [Done] `cave_bg.png` (copied from
-   `Assets/Art/Background/Stylised/Cave/Cave - BigRocks1.png`) tiled behind
-   the level, following the camera, dark-tinted for depth. Screenshot-
-   verified — reads clearly as a cave, close to reference. Note:
-   `cave_bg.png` is actually a whole Unity sprite atlas (multiple rock
-   formations meant to be sliced via .asset metadata this project doesn't
-   have easy access to outside the Editor), so it's drawn as one big
-   repeating tile rather than properly sliced -- looks fine at this
-   distance/scale but has visible repetition up close. Real per-sprite
-   slicing is a nice-to-have follow-up, not blocking. PS3 side still falls
-   back to a flat tinted quad (texture pipeline stub, see below).
+1. ~~**Background rendering.**~~ [Done] `cave_bg.png` (originally copied
+   whole from `Assets/Art/Background/Stylised/Cave/Cave - BigRocks1.png`)
+   tiled behind the level, following the camera, dark-tinted for depth.
+   Screenshot-verified — reads clearly as a cave.
+   **Follow-up (this session):** the "properly sliced" nice-to-have from
+   the original note is done — `Cave - BigRocks1.png.meta` has real
+   per-sprite pixel rects for its 10 sub-sprites (Unity texture atlases
+   store these directly in the `.meta` YAML, no Editor needed), so
+   `cave_bg.png` is now cropped to just sub-sprite `_2`'s rect
+   (x=1416,y=466,w=316,h=499, Unity's bottom-left-origin Y converted to
+   top-left for the crop) instead of the whole 10-sprite sheet. Reads as
+   one coherent rock silhouette repeating, not a jumbled sprite sheet —
+   screenshot-verified. Caveat found along the way (spawned a research
+   agent to check): this atlas isn't actually Unity's primary level
+   background at all — it's used as sparse decorative accent tiles
+   (2 placements, Level 1 only) within a much larger multi-atlas Tilemap
+   that forms the real wall/background art. Faithfully reproducing *that*
+   would need full tile-layout export (same blocker as level/rig data,
+   Unity Editor click required) — out of scope for now, documented here
+   rather than silently treated as solved. This crop is a better-looking
+   placeholder, not the real thing. Now loads as a real GTF on PS3 too
+   (texture pipeline below), not a flat tinted quad.
 2. ~~**On-screen UI text.**~~ [Done] Added `Render::LoadFont`/`DrawUIText`
    (normalized-screen-space text overlay) to the render interface: PC via
    SDL2_ttf (font: `data/fonts/ui.ttf`, copied from Unity's own bundled
