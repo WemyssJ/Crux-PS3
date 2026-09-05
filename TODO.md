@@ -336,6 +336,21 @@ the project root, that's a bug, not intended.
         between the two.
       Verified via rebuild + screenshot at rest and mid-swing. Full
       `build.bat` pass green on both targets, root clean.
+      **Round 8 — user is happy with the overall rig now, wants belt/bag/
+      shorts polish specifically ("look like the original").** Viewed
+      `Bag.png`'s actual pixels for the first time (previously only its
+      `.meta`) — a small olive-green satchel with a cream flap and a red
+      tag, matching what was already rendering; the art itself wasn't the
+      issue. Reconsidered round 6's "separate the bag from the belt"
+      fix: in the real rig, Bag is a CHILD of Shorts (a pouch literally
+      clipped onto the belt), so some overlap between them is correct,
+      not the bug round 6 assumed — reverted `kBagLocalOffset` back to
+      the real derived position (0.11,-0.37), keeping the belt's
+      shrunk-height approximation from round 6 (our renderer can only
+      stretch a whole texture, not crop to just the visible band within
+      it, so the shrunk height is a deliberate approximation of "mostly
+      just the band," not a precise crop). Verified via rebuild +
+      screenshot. Full `build.bat` pass green, root clean.
       **Still flagged, not yet actionable:** "legs are floppy and should
       move with rotation when flying" was reported without enough
       specifics to safely change blind (the leg-angle math already

@@ -108,11 +108,13 @@ namespace App
     // Bag_rel_Body = (0.18,-0.611) Unity units, x0.6 project scale factor =
     // (0.108,-0.367). Note it's NOT centered on the body (x != 0) in the
     // real rig -- previous iterations assumed symmetric placement.
-    // Iteration 6 (user-corrected): the belt and bag overlapped enough to
-    // read as "doubled up" once the belt (Shorts.png) was actually visible
-    // -- repositioned above the belt's top edge instead of inside its
-    // vertical span, for clean separation.
-    static const Vec2 kBagLocalOffset(0.11f, -0.30f);
+    // Iteration 6 (tried, reconsidered): repositioned above the belt's top
+    // edge instead of inside its vertical span, to stop a "doubled up"
+    // overlap -- but Bag is genuinely a CHILD of Shorts in the real rig (a
+    // pouch clipped onto the belt), so some overlap is actually correct,
+    // not a bug. Iteration 7: back to the real derived position; the
+    // belt's own size (below) is what actually needed tuning.
+    static const Vec2 kBagLocalOffset(0.11f, -0.37f);
     // Real size from Bag.png's actual crop (94x102 px @ 256 px/unit import,
     // see Bag.png.meta) x0.6 scale = (0.220, 0.239).
     static const Vec2 kBagSize(0.22f, 0.24f);
@@ -122,8 +124,10 @@ namespace App
     // (0,-0.9), same 256x512 @ 256px/unit texture as Body.png itself, so it
     // shares kBodySize's exact scale (0.6x1.2) before any further
     // adjustment. User-corrected: read as too deep (tall) -- shrunk the
-    // height further (iteration 6, after the bag overlap issue) to read as
-    // a clean, thin belt-line rather than a second full torso capsule.
+    // height to read as a clean, thin belt-line rather than a second full
+    // torso capsule (our renderer can only stretch the whole texture, not
+    // crop to just the visible band within it, so this is an approximation
+    // of "show mostly just the band," not a precise crop).
     static const Vec2 kShortsLocalOffset(0.0f, -0.54f);
     static const Vec2 kShortsSize(0.6f, 0.4f);
     // User-corrected: move out (further from centerline) and up.
