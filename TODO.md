@@ -264,13 +264,16 @@ the project root, that's a bug, not intended.
 - **Package branding.** `packaging/package.conf`'s `Content_ID` and
   `packaging/ICON0.PNG` (currently a crop of `head.png`) are placeholders.
   Real title art/ID is a user call, not something to guess further.
-- **Rig proportions in motion.** Everything's been checked at-rest or in a
-  landing pose; mid-swing/both-hands-attached poses still haven't had
-  dedicated screenshot passes. One data point now exists for airborne/
-  falling: the scripted-input attempt above (before it fell through the
-  level's reset trigger) caught a genuine in-flight frame — rig reads fine
-  spread out mid-air, nothing broken or misscaled. Not a substitute for
-  seeing a real controlled swing→flight arc, but a positive sign.
+- **Rig proportions in motion.** Real progress this session: the user
+  shared actual screenshots of the real game running side-by-side with
+  this port, both in a similar flying/falling spread pose. Used them to
+  re-validate the hand-offset fix above (see "Real Level 1–7..." note).
+  Both-hands-attached and mid-swing (not flying) poses still haven't
+  been checked against real reference the same way — worth another
+  side-by-side pass if more reference screenshots become available.
+  Shoulder/Bag/Head/Leg offsets (the ones not re-derived from
+  Player.prefab data, see above) are the most likely next candidates if
+  anything still reads off in a fresh comparison.
 - **PS3 save-data writability.** PB persistence (`save.cpp`) uses plain
   `fopen`/`fwrite` to `SYS_APP_HOME/save.dat` on PS3, not `cellSaveData`.
   Works in principle (same stdio calls as the PC version, which is
@@ -426,7 +429,7 @@ it can't be tested on hardware yet.
   (`data/level1.lvl` … `level7.lvl`, `data/player_rig.txt`), swap the
   placeholder level/rig constants in `app.cpp` for the real thing — this
   would also resolve a lot of the remaining rig-proportion guesswork.
-  **Tried a shortcut this session, worth knowing about:** Unity prefab/
+  **A shortcut, tried/reverted/re-applied this session:** Unity prefab/
   scene/`.meta` files are plain YAML, so `Assets/Prefab/Player.prefab`'s
   real transform hierarchy (Arm/Leg/Shoulder/Bag/Head local positions and
   rotations, `Arm.png`/`Leg.png`/etc.'s real pivot/pixel-per-unit import
@@ -434,23 +437,25 @@ it can't be tested on hardware yet.
   agent extracted the full hierarchy (see git log for the exact numbers).
   Composed the hand-grip offset from it (Arm's local pos+rotation, plus
   Hand/HandGrip's further local offset, scaled by this project's Unity-
-  relative unit factor of 0.6) and it screenshot-verified as a **regression**
-  against the already-reference-matched pose — reverted (see `app.cpp`'s
-  `kHandOffsetLeft` comment for the exact math and why it's suspect: likely
-  a rotation-direction/composition-order mistake, or Unity's rest-pose
-  angle isn't representative of the actual grabbing pose). Didn't even
-  attempt Shoulder/Bag/Head/Leg from this data — those sprites have
-  non-center pivots (e.g. Shoulder/Bag pivot at their own bottom-left, not
-  center), so their GameObject position isn't directly comparable to this
-  project's center-anchored `DrawTexturedQuad` convention without ALSO
-  knowing each sprite's real visible-content bounds (which needs pixel
-  inspection, not just the `.meta`, since a few of these rig constants were
-  already knowingly tuned against real pixel content over raw canvas size
-  — see `kLimbAspect`'s comment). Net takeaway: the real transform data
-  exists and is readable, but composing it correctly by hand is error-prone
-  enough that the actual Editor export (which would give Unity-resolved
-  world positions directly, no manual composition needed) remains the
-  reliable path — don't re-attempt this manual derivation blind again.
+  relative unit factor of 0.6), got `(-1.376, 1.209)`, and *initially*
+  reverted it as a regression — but that judgment was only against an
+  earlier, never-independently-verified guess, not real footage. Once the
+  user shared actual side-by-side screenshots of the real game (both arms
+  reaching in a wide, nearly-straight diagonal spanning past both
+  shoulders), the derived value's wider/more-horizontal reach matched
+  visibly better than the old guess's narrower/more-vertical one — see
+  `app.cpp`'s `kHandOffsetLeft` comment. Re-applied, screenshot-verified
+  at rest and mid-swing, both look right. Lesson: a "regression" judged
+  only against a prior unvalidated guess isn't real evidence — real
+  reference footage is what actually settles it.
+  Still didn't attempt Shoulder/Bag/Head/Leg from this data — those
+  sprites have non-center pivots (e.g. Shoulder/Bag pivot at their own
+  bottom-left, not center), so their GameObject position isn't directly
+  comparable to this project's center-anchored `DrawTexturedQuad`
+  convention without ALSO knowing each sprite's real visible-content
+  bounds (pixel inspection, not just the `.meta`). Worth revisiting now
+  that real reference screenshots exist to check against — see "Open
+  questions" below.
 - **On-hardware testing.** The DECHJ00A is powered off. `Build\PS3\` is
   staged and ready (see `PS3_DEPLOY_README.txt`) for whenever it's back on
   — either via Target Manager (target "PS3 Test", 10.1.1.2), copying the

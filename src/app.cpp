@@ -56,32 +56,25 @@ namespace App
         sScore.StartRun();
     }
 
-    // TODO: replace with real values from data/player_rig.txt once
-    // PS3/Export-Level-+-Rig-Data has been run in the Unity Editor (see
-    // Assets/Editor/PS3LevelExporter.cs). These are placeholder guesses.
-    // Iteration 3: pulled wide/high to read as a V-shaped reach (matches the
-    // reference screenshots) -- was nearly on top of the shoulder anchor
-    // before, which drew arms as short stubs with no clear angle. Since this
-    // point doubles as the swing pivot (see player.h's pivot-invariance
-    // note), this also changes swing radius/feel, not just the visual --
-    // worth re-checking once real rig data replaces this guess.
-    // Iteration 4 (user-reported): arms/legs read as ~50% too small overall
-    // (both length and thickness) -- scaled the reach anchor 1.5x from the
-    // previous iteration's (-0.62, 0.95).
-    // Iteration 5 (tried, reverted): computed this from Player.prefab's real
-    // local transforms (Arm at (-0.45,0.725) rotated 55deg, Hand+HandGrip
-    // (0,2.25) further out in Arm-local space, x0.6 for this project's
-    // Unity-relative unit scale) -- got (-1.376, 1.209). Screenshot-verified
-    // it against the reference-matched pose this guess was tuned to and it
-    // was a clear regression (arms read shorter, hands barely above ear
-    // height instead of the validated V-shaped reach), so the derivation
-    // has an error somewhere (likely a rotation-direction or composition-
-    // order mistake, or Unity's rest-pose angle isn't representative of the
-    // grabbing pose) -- reverted rather than trust the math over confirmed
-    // visual ground truth. Worth another attempt once real rig-export data
-    // is available to cross-check against, rather than re-deriving blind.
-    static const Vec2 kHandOffsetLeft(-0.93f, 1.43f);
-    static const Vec2 kHandOffsetRight(0.93f, 1.43f);
+    // Derived from Assets/Prefab/Player.prefab's real local transforms:
+    // Arm at (-0.45,0.725) rel. Body rotated 55deg, with Hand+HandGrip a
+    // further (0,2.25) out in Arm-local space -- gripRelBody =
+    // armLocalPos + RotateCCW((0,2.25), 55deg), scaled by this project's
+    // 0.6 Unity-relative unit factor (kBodySize 0.6x1.2 vs. Body.png's
+    // real 1.0x2.0). Right arm mirrors exactly (Hand's local x is 0, so
+    // Arm(R)'s -1 x-scale has no effect on this vector).
+    // Iteration 5 history: first tried this, then reverted it after
+    // judging it a regression against an EARLIER guess -- but that guess
+    // was itself never checked against real footage, only against a
+    // vaguer "V-shaped reach" impression. With actual side-by-side
+    // reference screenshots of the real game now available (both arms
+    // reaching in a wide, nearly-straight diagonal spanning past both
+    // shoulders), this derived value's wider/more-horizontal reach is
+    // the better match, not the earlier guess's narrower/more-vertical
+    // one -- re-applying it. This also sets the swing pivot radius (see
+    // player.h's pivot-invariance note), not just the visual.
+    static const Vec2 kHandOffsetLeft(-1.376f, 1.209f);
+    static const Vec2 kHandOffsetRight(1.376f, 1.209f);
     static const float kHandGripRadius = 0.15f;
 
     // Rig sprite proportions -- also placeholder-approximate until real
