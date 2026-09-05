@@ -236,13 +236,23 @@ the project root, that's a bug, not intended.
         offset had it backwards; now pushes the quad's center outward from
         the arm tip by half the hand's own size instead, matching that
         pivot convention.
-      - Both hands need the same horizontal mirror (previously only the
-        left one got it, right used `Hand.png` as-authored) — both now
-        use the same flip.
       - Bag/belt sat too low — reduced `kBagLocalOffset.y` magnitude
         (-0.35 -> -0.25).
       All verified via rebuild + screenshot at rest and mid-swing; full
       `build.bat` pass green on both targets, root clean.
+      **Round 2 (same live comparison, further correction):**
+      - Arms were too long/scaling looked wrong after the "re-applied
+        derived hand offset" fix (see above) — the *direction* (wide,
+        near-horizontal reach) was right, but the *magnitude* overshot.
+        Scaled `kHandOffsetLeft/Right` down ~15% (same angle) rather than
+        re-deriving from scratch: `(-1.376,1.209)` -> `(-1.17,1.03)`.
+      - The "both hands same mirror" fix from round 1 was itself wrong —
+        reverted it. Hands are a true asymmetric L/R pair (`Hand.png`
+        reads correctly as-authored for one side only); it was feet that
+        needed the "both the same" treatment, not hands. Feet now both
+        use `!flip`; hands are back to `!flip`/`flip` (left/right).
+      All re-verified via rebuild + screenshot. Full `build.bat` pass
+      green, root clean.
       **Still flagged, not yet actionable:** user reported "feet are
       wrong" and "legs are floppy and should move with rotation when
       flying" without enough specifics to safely change blind (the leg-

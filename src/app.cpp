@@ -69,12 +69,16 @@ namespace App
     // vaguer "V-shaped reach" impression. With actual side-by-side
     // reference screenshots of the real game now available (both arms
     // reaching in a wide, nearly-straight diagonal spanning past both
-    // shoulders), this derived value's wider/more-horizontal reach is
-    // the better match, not the earlier guess's narrower/more-vertical
-    // one -- re-applying it. This also sets the swing pivot radius (see
-    // player.h's pivot-invariance note), not just the visual.
-    static const Vec2 kHandOffsetLeft(-1.376f, 1.209f);
-    static const Vec2 kHandOffsetRight(1.376f, 1.209f);
+    // shoulders), this derived value's wider/more-horizontal reach was
+    // the better match direction-wise, not the earlier guess's narrower/
+    // more-vertical one -- re-applied.
+    // Iteration 6 (live side-by-side, user-corrected): the DIRECTION was
+    // right but the MAGNITUDE was too long -- scaled the derived vector
+    // down ~15% (keeping the same angle) rather than re-deriving; this
+    // also sets the swing pivot radius (see player.h's pivot-invariance
+    // note), not just the visual.
+    static const Vec2 kHandOffsetLeft(-1.17f, 1.03f);
+    static const Vec2 kHandOffsetRight(1.17f, 1.03f);
     static const float kHandGripRadius = 0.15f;
 
     // Rig sprite proportions -- also placeholder-approximate until real
@@ -408,8 +412,12 @@ namespace App
         float legAngleR = bodyRotZ + sPlayer.LegAngleRight();
         Vec2 footOffsetL = RotateAround(Vec2(kFeetSize.x * 0.28f, kFeetSize.y * 0.18f), Vec2(0, 0), legAngleL);
         Vec2 footOffsetR = RotateAround(Vec2(-kFeetSize.x * 0.28f, kFeetSize.y * 0.18f), Vec2(0, 0), legAngleR);
+        // User-corrected: both feet need the same horizontal mirror (unlike
+        // hands, which are a true asymmetric L/R pair -- Feet.png plus the
+        // already-asymmetric footOffset sign apparently doesn't need an
+        // additional per-side texture mirror on top).
         Render::DrawTexturedQuad(sTexFeet, hipL + legDirL + footOffsetL, kFeetSize, legAngleL, 0xFFFFFFFF, !flip);
-        Render::DrawTexturedQuad(sTexFeet, hipR + legDirR + footOffsetR, kFeetSize, legAngleR, 0xFFFFFFFF, flip);
+        Render::DrawTexturedQuad(sTexFeet, hipR + legDirR + footOffsetR, kFeetSize, legAngleR, 0xFFFFFFFF, !flip);
 
         // Body + bag (bag worn on the back, under the head/arms) + head (head
         // keeps its own slightly-lagging rotation, ported from
@@ -454,10 +462,12 @@ namespace App
         Vec2 armDirLocalR = (kHandOffsetRight - kShoulderOffsetRight).normalized();
         Vec2 handOffsetL = RotateAround(armDirLocalL * (kHandSize.y * 0.5f), Vec2(0, 0), bodyRotZ);
         Vec2 handOffsetR = RotateAround(armDirLocalR * (kHandSize.y * 0.5f), Vec2(0, 0), bodyRotZ);
-        // User-corrected: both hands need the same horizontal mirror, not
-        // just the left one.
+        // Hands ARE a true asymmetric L/R pair (unlike feet, see below) --
+        // reverted the "both hands same mirror" change: left needs the
+        // mirror, right doesn't (Hand.png reads correctly as-authored for
+        // one side only, same as the original design before that edit).
         Render::DrawTexturedQuad(sTexHand, sPlayer.HandWorldLeft() + handOffsetL, kHandSize, bodyRotZ, TintForHand(sPlayer.LeftHandColor()), !flip);
-        Render::DrawTexturedQuad(sTexHand, sPlayer.HandWorldRight() + handOffsetR, kHandSize, bodyRotZ, TintForHand(sPlayer.RightHandColor()), !flip);
+        Render::DrawTexturedQuad(sTexHand, sPlayer.HandWorldRight() + handOffsetR, kHandSize, bodyRotZ, TintForHand(sPlayer.RightHandColor()), flip);
 
         DrawUIOverlay();
 
