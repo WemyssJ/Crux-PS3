@@ -121,6 +121,25 @@ the project root, that's a bug, not intended.
       **Not visually confirmed during real regrab/launch/attach events**
       (needs live play, same category as the other input-gated behaviors
       above) — but this is a source-comparison bug fix, not a guess.
+- [x] **Score/level-trigger source-comparison pass — no bugs found, but
+      confirms correctness.** Read `LevelEnd.cs`/`LevelReset.cs`/
+      `LevelTimer.cs`/`SceneController.cs`/`ScoreManager.cs`/
+      `HighscoreManager.cs`/`PlayerStatsTracker.cs` fresh against
+      `score.cpp`/`app.cpp`'s trigger handling. Everything checked out:
+      medal thresholds (30/60/120s — the *actual* values baked into
+      `[UI].prefab`, not the C# script's unused 20/40/90 defaults, checked
+      by grepping the prefab YAML directly rather than trusting the
+      script), the `<=` threshold-comparison operator, `IsBetter`'s
+      Time/Jumps/Swings-lower-is-better vs. Flips-higher-is-better split,
+      and `FormatScore`'s mm:ss:ms/integer-rounding logic all match the
+      source exactly. `HighscoreManager`'s two-clock design (`LevelTimer`
+      for the UI display, `PlayerStatsTracker.ElapsedTime` for the actual
+      PB comparison) collapses to our single `ScoreTracker::m_elapsed` —
+      confirmed behaviorally equivalent since both source clocks start/
+      stop together and the PB snapshot happens synchronously at
+      `StopRun()` in both versions, not a bug. One clarification is worth
+      its own note above (see item 3's "More climbing levels" — the
+      auto-advance-to-next-level behavior isn't from the source at all).
 
 ## Open questions for the user (don't block on these — keep working, just flag)
 
@@ -242,6 +261,16 @@ it can't be tested on hardware yet.
    now auto-advances to the next level (wrapping after the last) instead of
    just stopping the run in place -- simple linear progression, no
    level-select menu yet. All 3 layouts screenshot-verified individually.
+   **Clarified this session** (source-comparison pass against
+   `LevelEnd.cs`/`SceneController.cs`): the real game doesn't auto-advance
+   at all -- `LevelEndTrigger` calls `SceneController.EndRun()`, which only
+   stops the timer and saves the PB; advancing to a specific level is a
+   *separate*, number-key-triggered `LoadLevel(index)` call that has
+   nothing to do with the end trigger. So this auto-advance isn't a
+   simplified port of real end-trigger behavior, it's a deliberate stand-in
+   for the level-select menu that was never built -- worth knowing if a
+   real menu gets added later, since at that point this auto-advance
+   should probably go away entirely rather than coexist with it.
    Fixed a correctness issue found along the way: PB was a single global
    value that would've misleadingly carried over between structurally
    different levels -- added `ScoreTracker::ResetPersonalBest()`, called on
