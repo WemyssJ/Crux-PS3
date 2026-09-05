@@ -141,4 +141,9 @@ namespace Input
         sPrevRestart = curRestart;
         sPrevPause = curPause;
     }
+
+    bool ControllerConnected()
+    {
+        return sController != NULL;
+    }
 }

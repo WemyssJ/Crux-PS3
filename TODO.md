@@ -14,6 +14,55 @@ the project root, that's a bug, not intended.
 
 ## Done
 
+- [x] **Playtest fixes from the first real-data play session**: user played
+      the newly-real Level 1 and reported three things.
+      - **Start point had nothing climbable.** Confirmed against the real
+        data: Level 1's `PLAYERSTART` is `(0,-15)`, nearest real grip cell
+        is 5–8 units away -- well beyond hand-swing reach (`kHandOffsetLeft/
+        Right` are ~1.2–1.8 units). Added `LevelData::EnsureStartIsClimbable()`
+        (`level.cpp`/`level.h`), called at the end of `Load()`: scans for an
+        existing solid cell within `kReach` (1.8 units) of `PlayerStart()`,
+        and only if none exists, synthesizes one directly above the start.
+        Real level data is otherwise left untouched -- this only fills a
+        genuine "nothing reachable at all" gap, it doesn't pad density
+        anywhere else. Only runs for `Load()` (real levels); the hand-
+        authored placeholders were already designed to be climbable from
+        the start. Screenshot-verified on Level 1 (temporary `Init()` state
+        forcing, reverted after) -- a new grip cell now appears just above
+        spawn.
+        **General "blocks are too sparse" note**: real cell density varies a
+        lot per level (as low as ~2% of the bounds' area on Level 1) and
+        this looked like it might be intentional difficulty pacing, not a
+        bug — deliberately did NOT pad density everywhere to avoid
+        flattening real level design on a guess. Flagged as an open
+        question below rather than acted on blindly.
+      - **Enter now confirms in menus, not just Jump/Cross.** `UpdateMainMenu`/
+        `UpdateLevelSelect`/`UpdateCustomizer`'s confirm checks are now
+        `Input::jumpWasPressed || Input::pauseIsPressed` (Enter on PC,
+        Start on PS3) instead of just `jumpWasPressed`. Left `UpdatePauseMenu`
+        alone -- Enter/Start already has its own special "always resume"
+        behavior there, unrelated to the cursor. Updated all three hint
+        strings (`Jump: select` -> `Jump/Enter: select`, etc.) to mention it.
+      - **"How do we flip our axis?"** -- genuinely ambiguous as reported
+        (could mean input left/right, a level Y-coordinate flip, the
+        player's flip mechanic, or something else); asked the user to
+        clarify rather than guess and risk shipping the wrong fix. See
+        "Open questions" below.
+
+- [x] **Controller-aware menu UI, PS3 button names.** `Input::` gained
+      `ControllerConnected()` (PC: `sController != NULL`; PS3: always `true`,
+      a pad's inherent to the platform). `app.cpp`'s three menu hint
+      strings (`ListHint`/`LevelSelectHint`/`GridHint`) now switch to real
+      PS3 button names ("D-Pad: Move   Cross/Start: Select   Select: Back")
+      once a pad's connected, matching `input.h`'s documented mapping
+      (Cross=jump, Square=flip, Triangle=up, Circle=down, Select=restart,
+      Start=pause), instead of always showing keyboard-oriented text.
+      Screenshot-verified the keyboard fallback still renders correctly
+      with no controller attached; the pad-connected path compiles but
+      hasn't been seen with a real gamepad plugged in (no physical pad
+      attached in this dev environment) -- worth a quick visual check once
+      one's connected.
+
 - [x] **Real Level 1–7 layout + player rig transform data, exported for real.**
       Was blocked on batch-mode license activation (see git history) —
       resolved once the user signed into Unity Hub and gave explicit
@@ -636,6 +685,22 @@ the project root, that's a bug, not intended.
 
 ## Open questions for the user (don't block on these — keep working, just flag)
 
+- **"How do we flip our axis?"** Asked verbatim during the first real-data
+  playtest, genuinely ambiguous -- could mean: (a) the player's existing
+  flip mechanic (X/Square, `Player::TryFlip`) not doing anything visible in
+  motion, (b) left/right input feeling reversed, (c) the level's vertical
+  (Y) axis reading upside-down/backwards vs. what climbing "up" should feel
+  like, or (d) something else entirely (a UI element, the camera). Didn't
+  guess and build the wrong fix -- need a one-line clarification on which
+  axis/mechanic before touching anything here.
+- **General level density/difficulty.** Real level cell density varies a
+  lot (Level 1 ~2% of its bounds, Level 7 ~21%) -- is the sparser end (esp.
+  Level 1) intentionally hard/floaty, or does it need padding beyond just
+  the start-point fix above? Also worth asking whether the swing/grip-
+  radius constants (tuned by feel against the old placeholder solid-wall
+  levels) still feel right against real, more scattered grip points, or if
+  a wider hand-grip check radius would help overall rather than only at the
+  start.
 - **Flip visual read.** Does the hand/foot-mirror-swap approximation for
   `isFlipped` actually look right in motion? Confidence upgraded this
   session: read `PlayerController.cs`'s actual `FlipHands()` (called from

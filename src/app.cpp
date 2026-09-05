@@ -273,13 +273,15 @@ namespace App
     }
 
     // Left/Right move the cursor (already edge-triggered, safe to reuse
-    // directly); Jump confirms; Restart backs out to the Main Menu.
+    // directly); Jump OR Enter/Start confirms (Enter's a natural "OK" key
+    // on PC, and PS3's Start already means "confirm this menu" in spirit);
+    // Restart backs out to the Main Menu.
     static void UpdateMainMenu()
     {
         const int kCount = 3; // Play, Select Level, Customize
         if (Input::leftIsPressed) sMenuCursor = (sMenuCursor + kCount - 1) % kCount;
         if (Input::rightIsPressed) sMenuCursor = (sMenuCursor + 1) % kCount;
-        if (Input::jumpWasPressed)
+        if (Input::jumpWasPressed || Input::pauseIsPressed)
         {
             if (sMenuCursor == 0)
             {
@@ -320,7 +322,7 @@ namespace App
         if (Input::rightIsPressed) sMenuCursor = (sMenuCursor + 1) % count;
         if (upEdge) sMenuCursor = ((sMenuCursor - kLevelGridCols) % count + count) % count;
         if (downEdge) sMenuCursor = (sMenuCursor + kLevelGridCols) % count;
-        if (Input::jumpWasPressed)
+        if (Input::jumpWasPressed || Input::pauseIsPressed)
         {
             sLevelIndex = sMenuCursor;
             LoadLevelByIndex(sLevelIndex);
@@ -354,7 +356,7 @@ namespace App
         {
             if (Input::leftIsPressed) sMenuCursor = (sMenuCursor + kLimbGroupCount - 1) % kLimbGroupCount;
             if (Input::rightIsPressed) sMenuCursor = (sMenuCursor + 1) % kLimbGroupCount;
-            if (Input::jumpWasPressed)
+            if (Input::jumpWasPressed || Input::pauseIsPressed)
             {
                 sCustomizerLimb = sMenuCursor;
                 sColorGridCursor = sLimbColorIndex[sCustomizerLimb];
@@ -378,7 +380,7 @@ namespace App
             sColorGridCursor = row * kColorGridCols + col;
             if (sColorGridCursor >= kColorSwatchCount) sColorGridCursor = kColorSwatchCount - 1;
 
-            if (Input::jumpWasPressed)
+            if (Input::jumpWasPressed || Input::pauseIsPressed)
             {
                 sLimbColorIndex[sCustomizerLimb] = sColorGridCursor;
                 Save::SetLimbColor(sCustomizerLimb, sColorGridCursor);
@@ -495,6 +497,33 @@ namespace App
             sCamera.Reset(sLevel.PlayerStart());
             sScore.StartRun();
         }
+    }
+
+    // Menu hint text -- shows PS3 controller button names (matching
+    // input.h's Cross/Square/Triangle/Circle/Select/Start mapping) once a
+    // pad is connected, keyboard hints otherwise. PS3 always reports a pad
+    // connected (one's inherent to the platform), so these always show
+    // button names there; PC switches over once an SDL_GameController is
+    // detected.
+    static const char *ListHint()
+    {
+        return Input::ControllerConnected()
+            ? "D-Pad: Move   Cross/Start: Select   Select: Back"
+            : "Left/Right: move   Jump/Enter: select   Restart: back";
+    }
+
+    static const char *LevelSelectHint()
+    {
+        return Input::ControllerConnected()
+            ? "D-Pad: Move   Cross/Start: Select   Select: Back"
+            : "Left/Right: move   Up/Down: row   Jump/Enter: select   Restart: back";
+    }
+
+    static const char *GridHint()
+    {
+        return Input::ControllerConnected()
+            ? "D-Pad: Move   Cross/Start: Confirm   Select: Cancel"
+            : "Arrows: move   Jump/Enter: confirm   Restart: cancel";
     }
 
     static unsigned int ColorForCell()
@@ -831,7 +860,7 @@ namespace App
             unsigned int color = selected ? 0xFF40E0E0 : 0xFFE0E0E0;
             Render::DrawUIText(sFontUI, kNxCenter, ny, line, color, 1.1f, true);
         }
-        Render::DrawUIText(sFontUI, 0.5f, 0.85f, "Left/Right: move   Jump: select   Restart: back", 0xFFA0A0A0, 0.8f, true);
+        Render::DrawUIText(sFontUI, 0.5f, 0.85f, ListHint(), 0xFFA0A0A0, 0.8f, true);
     }
 
     static void DrawMainMenu()
@@ -932,7 +961,7 @@ namespace App
             Render::DrawUIText(sFontUI, nx, ny, line, 0xFFD4AF37, 0.7f, true);
         }
 
-        Render::DrawUIText(sFontUI, 0.5f, 0.92f, "Left/Right: move   Up/Down: row   Jump: select   Restart: back", 0xFFA0A0A0, 0.75f, true);
+        Render::DrawUIText(sFontUI, 0.5f, 0.92f, LevelSelectHint(), 0xFFA0A0A0, 0.75f, true);
         Render::EndFrame();
     }
 
@@ -999,7 +1028,7 @@ namespace App
             Render::DrawQuad(pos, Vec2(kCell, kCell), 0.0f, kColorSwatches[i]);
         }
 
-        Render::DrawUIText(sFontUI, 0.42f, 0.78f, "Arrows: move   Jump: confirm   Restart: cancel", 0xFFA0A0A0, 0.8f);
+        Render::DrawUIText(sFontUI, 0.42f, 0.78f, GridHint(), 0xFFA0A0A0, 0.8f);
     }
 
     // Live rest-pose preview so the color choice is visible while picking --

@@ -64,4 +64,9 @@ namespace Input
         restartIsPressed = cellPadUtilButtonPressedOnce(PAD, CELL_UTIL_BUTTON_SELECT);
         pauseIsPressed = cellPadUtilButtonPressedOnce(PAD, CELL_UTIL_BUTTON_START);
     }
+
+    bool ControllerConnected()
+    {
+        return true; // a pad is inherent to the platform
+    }
 }

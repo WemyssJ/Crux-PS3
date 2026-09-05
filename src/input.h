@@ -32,6 +32,12 @@ namespace Input
     // Polls the pad and refreshes all the state above. Call once per frame,
     // before any gameplay code reads the fields.
     void Update();
+
+    // True if input is currently coming from a gamepad rather than the
+    // keyboard -- lets menu UI show PS3 button names (Cross/Square/etc.)
+    // instead of keyboard hints. Always true on PS3 (a pad is inherent to
+    // the platform); on PC, true once an SDL_GameController is connected.
+    bool ControllerConnected();
 }
 
 #endif

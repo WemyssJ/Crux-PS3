@@ -64,6 +64,16 @@ private:
     void LoadPlaceholderCavern();  // level 1: wide, scattered floating platforms
     void LoadPlaceholderChimney(); // level 2: narrow shaft, frequent swings, little room to fly
 
+    // Real exported levels can legitimately have their nearest grip point
+    // several units from PLAYERSTART (an intentional short fall/flight
+    // opening), but that can also leave nothing reachable at all right at
+    // spawn. Guarantees at least one solid cell within arm's-length of
+    // PlayerStart() so there's always an immediate, no-flight-required
+    // first grab; a no-op if one already exists nearby. Called at the end
+    // of Load() only (the hand-authored placeholders are already designed
+    // to be climbable from the start).
+    void EnsureStartIsClimbable();
+
     Vec2 m_cellSize;
     Vec2 m_origin;
     int m_boundsMinX, m_boundsMinY, m_boundsMaxX, m_boundsMaxY;
