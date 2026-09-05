@@ -68,8 +68,20 @@ the project root, that's a bug, not intended.
         the swatch under the cursor on the rig before confirming (Jump
         commits it to `sLimbColorIndex[]`, Restart cancels). Gameplay draw
         (`DrawGameplayWorld`) now tints Body+Shorts/Arm+Shoulder/Leg
-        independently instead of one `clothColor`. Selection still isn't
-        persisted across launches (same caveat as before, just per-limb now).
+        independently instead of one `clothColor`.
+        **Update:** now persisted -- `Save::` gained `GetLimbColor`/
+        `SetLimbColor` (a `LIMBS <a> <b> <c> <d>` trailing line appended
+        after the per-level PB lines in `save.dat`; absent entirely on an
+        older save file, in which case it defaults to all-zero/as-authored,
+        same as before). `Init()` loads all three limb colors from `Save::`
+        after `Save::Load()`; confirming a color in the grid (Jump) now
+        calls `Save::SetLimbColor` alongside updating the in-memory
+        `sLimbColorIndex[]`. Verified end to end: seeded a color via a
+        temporary one-off write, confirmed the exact `LIMBS 2 0 0 0` line
+        landed in `save.dat`, removed the seed, relaunched, and
+        screenshot-confirmed the Torso swatch loaded back correctly on the
+        customizer's rig preview before reverting the temporary state-forcing
+        and deleting the test `save.dat`.
       - **Level Select redesigned as tiles**: each level is a tile with name,
         a thumbnail (`cave_bg.png` reused with a per-tile hue tint — no real
         per-level art exists yet), the saved PB (`Save::`, works across all

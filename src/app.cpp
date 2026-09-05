@@ -254,6 +254,11 @@ namespace App
         sScore.Configure(kScoreTime, thresholds);
 
         Save::Load();
+        for (int i = 0; i < kLimbGroupCount; i++)
+        {
+            int c = Save::GetLimbColor(i);
+            sLimbColorIndex[i] = (c >= 0 && c < kColorSwatchCount) ? c : 0;
+        }
 
         sGameState = kStateMainMenu;
 
@@ -376,6 +381,7 @@ namespace App
             if (Input::jumpWasPressed)
             {
                 sLimbColorIndex[sCustomizerLimb] = sColorGridCursor;
+                Save::SetLimbColor(sCustomizerLimb, sColorGridCursor);
                 sCustomizerStep = 0;
             }
             else if (Input::restartIsPressed)

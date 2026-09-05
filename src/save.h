@@ -13,6 +13,7 @@
 namespace Save
 {
     static const int kMaxLevels = 16;
+    static const int kMaxLimbColors = 4; // matches App::kLimbGroupCount (3) with headroom
 
     // Idempotent -- safe to call any time; the first call actually reads the
     // file, later calls are no-ops until something is written again.
@@ -23,6 +24,14 @@ namespace Save
     float GetBest(int levelIndex);
     // Persists immediately (calls Flush internally).
     void SetBest(int levelIndex, float value);
+
+    // Character customizer color selection, per limb group (App::LimbGroup),
+    // as an index into app.cpp's swatch palette. Returns 0 (the default/
+    // as-authored swatch) for a limb never explicitly set, including on a
+    // save file written before this existed.
+    int GetLimbColor(int limbIndex);
+    // Persists immediately (calls Flush internally).
+    void SetLimbColor(int limbIndex, int colorIndex);
 }
 
 #endif
