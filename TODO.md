@@ -162,6 +162,20 @@ the project root, that's a bug, not intended.
       held-Up-then-swing-into-position test** (needs live play) but this
       is a source-comparison bug fix backed by an exact line-for-line
       read of `InputManager.cs`, not a guess.
+- [x] **Full source-comparison sweep complete.** Every gameplay C# script
+      under `Assets/Scripts` has now been read fresh this session and
+      checked against its C++ port: `PlayerController.cs`,
+      `CameraController.cs`, `InputManager.cs`, `LevelEnd.cs`,
+      `LevelReset.cs`, `LevelTimer.cs`, `SceneController.cs`,
+      `ScoreManager.cs`, `HighscoreManager.cs`, `PlayerStatsTracker.cs`,
+      `ScoreType.cs` — only `PlayFabNameManager.cs` wasn't (PlayFab is
+      explicitly out of scope, see "Backlog" below). Found and fixed two
+      real bugs (camera pivot wiring, up/down input semantics) and
+      confirmed everything else already matches. This technique
+      (comparing actual source against the port, not deriving numeric
+      constants from ambiguous transform/pivot data) has been reliably
+      safe and productive all session — worth reaching for again first if
+      more porting issues turn up later.
 
 ## Open questions for the user (don't block on these — keep working, just flag)
 
