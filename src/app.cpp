@@ -123,18 +123,20 @@ namespace App
     // Real Player.prefab data: Shorts is a direct child of Body at local
     // (0,-0.9), same 256x512 @ 256px/unit texture as Body.png itself, so it
     // shares kBodySize's exact scale (0.6x1.2) before any further
-    // adjustment. User-corrected: read as too deep (tall) -- shrunk the
-    // height to read as a clean, thin belt-line rather than a second full
-    // torso capsule (our renderer can only stretch the whole texture, not
-    // crop to just the visible band within it, so this is an approximation
-    // of "show mostly just the band," not a precise crop).
-    // Iteration 8 (user-corrected): moved down slightly, and thinner still.
-    // Iteration 9: a real zoomed-in reference screenshot of the original
-    // game arrived showing the belt as a genuinely slender band (much
-    // thinner than this project had it) -- shrunk further to match.
-    // Iteration 10 (user-corrected): still not thin enough -- halved again.
-    static const Vec2 kShortsLocalOffset(0.0f, -0.60f);
-    static const Vec2 kShortsSize(0.6f, 0.08f);
+    // adjustment. Iterations 6-10 kept shrinking this trying to make the
+    // visible belt band thinner -- wrong approach. Pixel-measured the
+    // rendered result at 0.08: the whole quad reads as solid olive, no
+    // distinct blue-olive-blue banding, because squashing the source this
+    // far makes texture filtering blend the surrounding blue into the
+    // band, AND disconnects the garment from the torso/legs it should
+    // bridge (user-reported: "make shorts on top of torso/belt"). The
+    // band's thinness is a fixed proportion of the source texture, not
+    // something the container size controls -- reverted to the real
+    // derived natural size so it renders as a proper garment layer (belt
+    // band included, at its true proportion) instead of a disconnected
+    // small olive blob.
+    static const Vec2 kShortsLocalOffset(0.0f, -0.54f);
+    static const Vec2 kShortsSize(0.6f, 1.2f);
     // User-corrected: move out (further from centerline) and up.
     // Iteration 2 (user-corrected): moved down slightly (paired with
     // shorts moving down the same way).

@@ -367,6 +367,25 @@ the project root, that's a bug, not intended.
       assuming the value itself needed to change further, not a stale-
       build issue. `kShortsSize`'s height: 0.16 -> 0.08. Verified via
       rebuild + screenshot, full `build.bat` pass green, root clean.
+      **Round 11 — the shrinking approach itself was wrong, caught via
+      pixel measurement.** User said "belt strap is the issue" and "make
+      shorts on top of torso/belt." Calibrated pixels-per-world-unit
+      using the head (a known 0.62x0.62 square) and directly measured
+      the rendered belt at 0.08: it showed as a solid olive block with
+      no distinct blue-olive-blue banding, and didn't reach up to the
+      torso or down to the legs -- squashing the source texture this far
+      makes bilinear filtering blend the surrounding blue into the band
+      (so shrinking the container doesn't make the *band* thinner, it
+      just shrinks the whole garment uniformly and disconnects it from
+      what it should visually bridge). Reverted `kShortsSize`/
+      `kShortsLocalOffset` to the real derived natural size (0.6x1.2 @
+      (0,-0.54)) instead of continuing to shrink -- the band's thinness
+      is a fixed proportion of the source texture, not something the
+      container size controls; rendering at natural size lets it read as
+      a proper garment layer (belt band at its true, already-thin
+      proportion) bridging torso and legs, instead of a disconnected
+      small olive blob. Verified via rebuild + screenshot + pixel
+      re-check. Full `build.bat` pass green, root clean.
       **Still flagged, not yet actionable:** "legs are floppy and should
       move with rotation when flying" was reported without enough
       specifics to safely change blind (the leg-angle math already
