@@ -40,8 +40,14 @@ namespace Render
     // UI text overlay, in normalized screen fractions (0,0 = top-left, 1,1 =
     // bottom-right) -- not world space, always reads flat regardless of
     // camera. scale is a size multiplier around a reasonable default per
-    // platform (they don't share a physical font size concept).
-    void DrawUIText(FontHandle font, float nx, float ny, const char *text, unsigned int colorArgb, float scale = 1.0f);
+    // platform (they don't share a physical font size concept). centered:
+    // false (default) anchors (nx,ny) at the text's top-left, matching every
+    // existing HUD/menu call; true anchors it at the text's own center --
+    // for button/tile labels that need to sit centered in a box regardless
+    // of string length. PS3 has no text-measurement API (gcmutil's debug
+    // font wrapper doesn't expose one), so centered there is a best-effort
+    // fixed-glyph-width approximation, unverified on real hardware.
+    void DrawUIText(FontHandle font, float nx, float ny, const char *text, unsigned int colorArgb, float scale = 1.0f, bool centered = false);
 
     void EndFrame();
 

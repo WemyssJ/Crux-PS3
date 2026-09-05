@@ -14,6 +14,76 @@ the project root, that's a bug, not intended.
 
 ## Done
 
+- [x] **Real gamepad support, per-limb customizer, tiled/paginated level
+      select, and menu visual polish (mountain background, button boxes,
+      centered text, carved-stone CRUX banner).**
+      - **Controller support** (`input_pc.cpp`): added real `SDL_GameController`
+        reading (D-pad + left stick + A/B/X/Y/Start/Back), hot-plugged each
+        frame until one's found, OR'd together with the existing keyboard
+        state for every `Input::` field so either source drives gameplay
+        *and* every menu screen ("wired up throughout" — no separate menu-
+        input path). Held vs. edge-triggered semantics per-action are
+        unchanged (Up/Down stayed held, matching `PlayerController.cs`'s
+        `IsPressed` usage — see below). Not tested with a real physical
+        gamepad (none attached in this dev environment) — only verified to
+        compile/link against `sdl2-config`'s libs and that the keyboard path
+        still works identically with no controller connected.
+      - **Customizer redesigned per-limb**: was one global color cycled with
+        Left/Right; now a two-step flow — pick a limb group (Torso/Arms/Legs,
+        `kLimbGroupCount`) via a `DrawMenuList`-style button list, then pick
+        its color from a 12-swatch, 4-column grid (`DrawColorGrid`) navigated
+        with Left/Right (column) + Up/Down (row). Stands in for the
+        requested "Windows style colour picker" — there's no OS color dialog
+        on PS3 and this project shares one input model/UI across both
+        platforms, so it's a rolled-own grid, not a real system dialog.
+        Grid navigation needed its own local edge-detection for Up/Down
+        (`sPrevMenuUp/sPrevMenuDown`) since those are HELD signals for
+        gameplay's hand-grip semantics, not edge-triggered — moving a full
+        row every single frame they're held would be unusable. Live-previews
+        the swatch under the cursor on the rig before confirming (Jump
+        commits it to `sLimbColorIndex[]`, Restart cancels). Gameplay draw
+        (`DrawGameplayWorld`) now tints Body+Shorts/Arm+Shoulder/Leg
+        independently instead of one `clothColor`. Selection still isn't
+        persisted across launches (same caveat as before, just per-limb now).
+      - **Level Select redesigned as tiles**: each level is a tile with name,
+        a thumbnail (`cave_bg.png` reused with a per-tile hue tint — no real
+        per-level art exists yet), the saved PB (`Save::`, works across all
+        levels regardless of which is loaded) and the gold-medal time as
+        "score to beat" (`ScoreTracker`'s thresholds are the same for every
+        level currently — see `score.h` — so this reads the one shared
+        `sScore` instance). Laid out as a paginated 3x2 grid (not one long
+        row) specifically so it scales well past the current 3 placeholder
+        levels — built and screenshot-tested with `PlaceholderLevelCount()`
+        temporarily forced to 20 (4 pages, confirmed correct pagination,
+        then reverted). The active page is *derived* from the cursor
+        (`page = cursor / tilesPerPage`), so Left/Right's existing linear
+        wrap pages automatically; added Up/Down (edge-detected, jumps a full
+        row) for faster movement, sharing the same local edge-detection as
+        the customizer's grid.
+      - **Menu visual polish**: `DrawMenuBackground()` reuses `cave_bg.png`
+        tinted dusk-blue as a full-screen backdrop (its jagged rock shapes
+        read surprisingly well as a distant mountain range at this scale) on
+        every non-gameplay menu screen. `DrawMenuList` now draws a button-box
+        quad behind each item (highlighted when selected) instead of plain
+        text lines. `Render::DrawUIText` gained a `centered` parameter (both
+        `render_pc.cpp`, via real `TTF` measurement, and `render_ps3.cpp`,
+        via a best-effort fixed-glyph-width approximation — gcmutil's debug-
+        font wrapper has no text-measurement API, so this is unverified on
+        real hardware) so button/tile labels sit centered regardless of
+        string length — added `MenuWorldPos()` to convert a normalized
+        screen fraction to world space under *either* the fixed menu camera
+        or the pause overlay's live gameplay camera, so button boxes line up
+        correctly under both. The main menu's "CRUX" title is now a carved-
+        stone banner (`DrawCruxBanner`) — a stone-tinted slab with a darker
+        bezel behind it and the title text given a hard dark shadow + light
+        highlight offset the opposite way, reading as engraved into the
+        slab. (User picked this style over block-letters/graffiti/plain-text
+        alternatives when asked.)
+      All of the above verified via rebuild + screenshot, using the same
+      temporary-`Init()`-state-forcing pattern as before (forced game state,
+      customizer step/limb/cursor, and level count; all reverted before
+      committing). Full `build.bat` pass green on both targets, root clean.
+
 - [x] **Main menu, level select, character customizer, and pause menu.**
       No C# equivalent to port here — the real game has no such scripts
       among `Assets/Scripts` (`SceneController` just jumps straight into

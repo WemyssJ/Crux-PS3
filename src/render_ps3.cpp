@@ -306,14 +306,29 @@ namespace Render
         sTexQuadCount++;
     }
 
-    void DrawUIText(FontHandle /*font*/, float nx, float ny, const char *text, unsigned int colorArgb, float scale)
+    void DrawUIText(FontHandle /*font*/, float nx, float ny, const char *text, unsigned int colorArgb, float scale, bool centered)
     {
         if (!text || !text[0]) return;
+        float s = (scale > 0.0f ? scale : 1.0f);
+        if (centered)
+        {
+            // gcmutil's debug-font wrapper (gcmutil.h) exposes no text-
+            // measurement API, so this assumes a fixed-width glyph and
+            // approximates the advance as a screen-fraction constant --
+            // unverified on real hardware (matches this file's other PS3
+            // caveats); if the debug font's real advance differs, text
+            // will drift off-center rather than break outright.
+            const float kApproxCharWidthFrac = 0.018f;
+            const float kApproxCharHeightFrac = 0.032f;
+            int len = (int)strlen(text);
+            nx -= len * kApproxCharWidthFrac * s * 0.5f;
+            ny -= kApproxCharHeightFrac * s * 0.5f;
+        }
         // NOTE: color byte order not verified against gcmutil's own
         // convention (couldn't test on hardware) -- basic2's sample only
         // ever passes 0xffffffff, which doesn't disambiguate ARGB vs RGBA.
         // If text comes out the wrong color on real hardware, swap R/B here.
-        cellGcmUtilSetPrintSize(0.5f * (scale > 0.0f ? scale : 1.0f));
+        cellGcmUtilSetPrintSize(0.5f * s);
         cellGcmUtilSetPrintPos(nx, ny);
         cellGcmUtilSetPrintColor(colorArgb);
         cellGcmUtilPrintf("%s\n", text);

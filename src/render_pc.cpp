@@ -168,7 +168,7 @@ namespace Render
         SDL_RenderCopyEx(sRenderer, t, NULL, &dst, -rotationDeg, NULL, (SDL_RendererFlip)flip);
     }
 
-    void DrawUIText(FontHandle font, float nx, float ny, const char *text, unsigned int colorArgb, float scale)
+    void DrawUIText(FontHandle font, float nx, float ny, const char *text, unsigned int colorArgb, float scale, bool centered)
     {
         if (font == 0 || font > sFontCount || !sFonts[font - 1] || !text || !text[0]) return;
 
@@ -186,11 +186,13 @@ namespace Render
         SDL_FreeSurface(surf);
         if (!tex) return;
 
+        int dw = (int)(textW * scale);
+        int dh = (int)(textH * scale);
         SDL_Rect dst;
-        dst.x = (int)(nx * kWindowW);
-        dst.y = (int)(ny * kWindowH);
-        dst.w = (int)(textW * scale);
-        dst.h = (int)(textH * scale);
+        dst.x = (int)(nx * kWindowW) - (centered ? dw / 2 : 0);
+        dst.y = (int)(ny * kWindowH) - (centered ? dh / 2 : 0);
+        dst.w = dw;
+        dst.h = dh;
         SDL_RenderCopy(sRenderer, tex, NULL, &dst);
         SDL_DestroyTexture(tex);
     }

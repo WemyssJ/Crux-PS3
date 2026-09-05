@@ -36,21 +36,46 @@ namespace App
     static GameState sGameState = kStateMainMenu;
     static int sMenuCursor = 0;
 
-    // Character customizer -- "colours for now" per the request. Applied to
-    // the clothing surfaces (Body/Arm/Leg/Shoulder/Shorts) only, not
+    // Character customizer -- per-limb colour picking: choose a limb group,
+    // then a replacement colour for just that group, via a swatch-grid
+    // picker standing in for a desktop "Windows style" colour dialog (there's
+    // no OS colour picker available on PS3, and this project shares one
+    // input model/UI across both platforms, so this rolls its own grid
+    // instead of shelling out to one). Applied to the clothing surfaces only
+    // (Body+Shorts as "Torso", Arm+Shoulder as "Arms", Leg as "Legs"), not
     // skin/hair/accessories (Head/Hand/Feet/Bag), which keep their own
     // authored colors and grip-state tinting.
-    static const unsigned int kPlayerColors[] =
+    enum LimbGroup { kLimbTorso, kLimbArms, kLimbLegs, kLimbGroupCount };
+    static const char *kLimbGroupNames[kLimbGroupCount] = { "Torso", "Arms", "Legs" };
+
+    static const unsigned int kColorSwatches[] =
     {
-        0xFFFFFFFF, // default (as-authored)
-        0xFFFF9090, // red
-        0xFF90E090, // green
-        0xFF90C0FF, // blue
-        0xFFFFE060, // yellow
-        0xFFE090FF, // purple
+        0xFFFFFFFF, 0xFFFF9090, 0xFF90E090, 0xFF90C0FF,
+        0xFFFFE060, 0xFFE090FF, 0xFFB0B0B0, 0xFF404040,
+        0xFFFF4040, 0xFF40C040, 0xFF4080FF, 0xFFFFA030,
     };
-    static const int kPlayerColorCount = sizeof(kPlayerColors) / sizeof(kPlayerColors[0]);
-    static int sPlayerColorIndex = 0;
+    static const int kColorSwatchCount = sizeof(kColorSwatches) / sizeof(kColorSwatches[0]);
+    static const int kColorGridCols = 4;
+
+    static int sLimbColorIndex[kLimbGroupCount] = { 0, 0, 0 };
+    static int sCustomizerStep = 0;   // 0 = choose limb, 1 = pick a colour for it
+    static int sCustomizerLimb = 0;   // limb chosen in step 0
+    static int sColorGridCursor = 0;  // swatch cursor in step 1
+    static bool sPrevMenuUp = false, sPrevMenuDown = false; // local edge-detect for held Up/Down (see UpdateCustomizer)
+
+    // Fixed camera/zoom every non-gameplay menu screen renders at (matches
+    // BeginMenuFrame) -- also needed by DrawMenuList to place button boxes
+    // under the SAME screen positions DrawUIText's nx/ny use, since the pause
+    // menu overlay reuses DrawMenuList but renders under the live gameplay
+    // camera instead.
+    static const Vec2 kMenuCamPos(0.0f, 0.0f);
+    static const float kMenuOrthoHalfHeight = 6.0f;
+
+    // Level Select's grid layout (see DrawLevelSelect/UpdateLevelSelect) --
+    // declared up here since UpdateLevelSelect (which comes first in the
+    // file) needs kLevelGridCols for its Up/Down row-jump math.
+    static const int kLevelGridCols = 3;
+    static const int kLevelGridRows = 2;
 
     // Tries data/level<N+1>.lvl (real exported data, once
     // PS3/Export-Level-+-Rig-Data has been run in Unity -- see TODO.md)
@@ -263,17 +288,33 @@ namespace App
             }
             else
             {
-                sMenuCursor = sPlayerColorIndex;
+                sMenuCursor = sCustomizerLimb;
+                sCustomizerStep = 0;
                 sGameState = kStateCustomizer;
             }
         }
     }
 
+    // Left/Right move linearly through the flat level list (unchanged --
+    // this already pages automatically, see DrawLevelSelect's comment).
+    // Up/Down jump a full grid row (+/- kLevelGridCols) for faster movement
+    // once there are enough levels to need it; they're HELD signals (see
+    // input_pc.cpp), so -- like UpdateCustomizer's color grid -- this needs
+    // its own local edge-detection rather than moving a row every frame
+    // they're held. Shares sPrevMenuUp/sPrevMenuDown with the customizer;
+    // harmless since only one of these states is ever active at a time.
     static void UpdateLevelSelect()
     {
         int count = LevelData::PlaceholderLevelCount();
+        bool upEdge = Input::upIsPressed && !sPrevMenuUp;
+        bool downEdge = Input::downIsPressed && !sPrevMenuDown;
+        sPrevMenuUp = Input::upIsPressed;
+        sPrevMenuDown = Input::downIsPressed;
+
         if (Input::leftIsPressed) sMenuCursor = (sMenuCursor + count - 1) % count;
         if (Input::rightIsPressed) sMenuCursor = (sMenuCursor + 1) % count;
+        if (upEdge) sMenuCursor = ((sMenuCursor - kLevelGridCols) % count + count) % count;
+        if (downEdge) sMenuCursor = (sMenuCursor + kLevelGridCols) % count;
         if (Input::jumpWasPressed)
         {
             sLevelIndex = sMenuCursor;
@@ -287,14 +328,60 @@ namespace App
         }
     }
 
+    // Step 0: Left/Right cycles which limb group is selected (kLimbGroupCount
+    // options), Jump drops into that limb's colour grid, Restart backs out
+    // to the Main Menu.
+    // Step 1: a 2D swatch grid -- Left/Right/Up/Down move the cursor, Jump
+    // confirms (commits the swatch to sLimbColorIndex), Restart cancels back
+    // to step 0 with no change. Up/Down are HELD signals (Input::upIsPressed/
+    // downIsPressed, matching PlayerController.cs's IsPressed-based hand-grip
+    // semantics -- see input_pc.cpp), so row movement needs its own local
+    // edge-detection here rather than moving one row every single frame
+    // they're held.
     static void UpdateCustomizer()
     {
-        if (Input::leftIsPressed) sPlayerColorIndex = (sPlayerColorIndex + kPlayerColorCount - 1) % kPlayerColorCount;
-        if (Input::rightIsPressed) sPlayerColorIndex = (sPlayerColorIndex + 1) % kPlayerColorCount;
-        if (Input::jumpWasPressed || Input::restartIsPressed)
+        bool upEdge = Input::upIsPressed && !sPrevMenuUp;
+        bool downEdge = Input::downIsPressed && !sPrevMenuDown;
+        sPrevMenuUp = Input::upIsPressed;
+        sPrevMenuDown = Input::downIsPressed;
+
+        if (sCustomizerStep == 0)
         {
-            sMenuCursor = 0;
-            sGameState = kStateMainMenu;
+            if (Input::leftIsPressed) sMenuCursor = (sMenuCursor + kLimbGroupCount - 1) % kLimbGroupCount;
+            if (Input::rightIsPressed) sMenuCursor = (sMenuCursor + 1) % kLimbGroupCount;
+            if (Input::jumpWasPressed)
+            {
+                sCustomizerLimb = sMenuCursor;
+                sColorGridCursor = sLimbColorIndex[sCustomizerLimb];
+                sCustomizerStep = 1;
+            }
+            else if (Input::restartIsPressed)
+            {
+                sMenuCursor = 0;
+                sGameState = kStateMainMenu;
+            }
+        }
+        else
+        {
+            int rows = (kColorSwatchCount + kColorGridCols - 1) / kColorGridCols;
+            int row = sColorGridCursor / kColorGridCols;
+            int col = sColorGridCursor % kColorGridCols;
+            if (Input::leftIsPressed) col = (col + kColorGridCols - 1) % kColorGridCols;
+            if (Input::rightIsPressed) col = (col + 1) % kColorGridCols;
+            if (upEdge) row = (row + rows - 1) % rows;
+            if (downEdge) row = (row + 1) % rows;
+            sColorGridCursor = row * kColorGridCols + col;
+            if (sColorGridCursor >= kColorSwatchCount) sColorGridCursor = kColorSwatchCount - 1;
+
+            if (Input::jumpWasPressed)
+            {
+                sLimbColorIndex[sCustomizerLimb] = sColorGridCursor;
+                sCustomizerStep = 0;
+            }
+            else if (Input::restartIsPressed)
+            {
+                sCustomizerStep = 0; // cancel, no change
+            }
         }
     }
 
@@ -543,9 +630,12 @@ namespace App
         // confirm this reads right once they're back -- see TODO.md.
         bool flip = sPlayer.IsFlipped();
 
-        // Customizer color -- applied to clothing surfaces only (Body/Arm/
-        // Leg/Shoulder/Shorts), not skin/hair/accessories.
-        unsigned int clothColor = kPlayerColors[sPlayerColorIndex];
+        // Customizer colors -- per-limb group, applied to clothing surfaces
+        // only (Body/Shorts as Torso, Arm/Shoulder as Arms, Leg as Legs),
+        // not skin/hair/accessories.
+        unsigned int torsoColor = kColorSwatches[sLimbColorIndex[kLimbTorso]];
+        unsigned int armsColor = kColorSwatches[sLimbColorIndex[kLimbArms]];
+        unsigned int legsColor = kColorSwatches[sLimbColorIndex[kLimbLegs]];
 
         Vec2 shoulderL = bodyPos + RotateAround(kShoulderOffsetLeft, Vec2(0, 0), bodyRotZ);
         Vec2 shoulderR = bodyPos + RotateAround(kShoulderOffsetRight, Vec2(0, 0), bodyRotZ);
@@ -559,8 +649,8 @@ namespace App
         // User-corrected: Leg.png's authored orientation put the left leg
         // upside down (needs +180) and the right leg needed a top/bottom
         // mirror (not left/right -- flipY, not flipX) to read correctly.
-        DrawLimb(sTexLeg, hipL, hipL + legDirL, kLimbAspect, clothColor, 180.0f);
-        DrawLimb(sTexLeg, hipR, hipR + legDirR, kLimbAspect, clothColor, 0.0f, false, true);
+        DrawLimb(sTexLeg, hipL, hipL + legDirL, kLimbAspect, legsColor, 180.0f);
+        DrawLimb(sTexLeg, hipR, hipR + legDirR, kLimbAspect, legsColor, 0.0f, false, true);
         // Hand.png/Feet.png are authored facing one direction (not symmetric),
         // so one side needs a horizontal mirror to match visually.
         //
@@ -587,10 +677,10 @@ namespace App
         // its own slightly-lagging rotation, ported from PlayerController.
         // UpdateHead, while still translating with the body). Draw order
         // matches the real rig hierarchy: Body -> Shorts -> Bag.
-        Render::DrawTexturedQuad(sTexBody, bodyPos, kBodySize, bodyRotZ, clothColor);
+        Render::DrawTexturedQuad(sTexBody, bodyPos, kBodySize, bodyRotZ, torsoColor);
 
         Vec2 shortsPos = bodyPos + RotateAround(kShortsLocalOffset, Vec2(0, 0), bodyRotZ);
-        Render::DrawTexturedQuad(sTexShorts, shortsPos, kShortsSize, bodyRotZ, clothColor);
+        Render::DrawTexturedQuad(sTexShorts, shortsPos, kShortsSize, bodyRotZ, torsoColor);
 
         Vec2 bagPos = bodyPos + RotateAround(kBagLocalOffset, Vec2(0, 0), bodyRotZ);
         Render::DrawTexturedQuad(sTexBag, bagPos, kBagSize, bodyRotZ, 0xFFFFFFFF);
@@ -603,8 +693,8 @@ namespace App
         // visually correct regardless of rig proportion guesses.
         // User-corrected: right arm's baked-in shading was on the wrong
         // side (top instead of bottom) -- mirrored.
-        DrawLimb(sTexArm, shoulderL, sPlayer.HandWorldLeft(), kLimbAspect, clothColor);
-        DrawLimb(sTexArm, shoulderR, sPlayer.HandWorldRight(), kLimbAspect, clothColor, 0.0f, true);
+        DrawLimb(sTexArm, shoulderL, sPlayer.HandWorldLeft(), kLimbAspect, armsColor);
+        DrawLimb(sTexArm, shoulderR, sPlayer.HandWorldRight(), kLimbAspect, armsColor, 0.0f, true);
 
         // Shoulder caps drawn after the arms, on top, to cover the arm/body
         // seam. Shoulder.png is a dome (rounded top, flat bottom as authored)
@@ -616,8 +706,8 @@ namespace App
         // swapped which one mirrors (right now mirrors, left no longer does).
         float shoulderCapAngleL = AngleAlong(shoulderL - sPlayer.HandWorldLeft());
         float shoulderCapAngleR = AngleAlong(shoulderR - sPlayer.HandWorldRight());
-        Render::DrawTexturedQuad(sTexShoulder, shoulderL, kShoulderCapSize, shoulderCapAngleL, clothColor);
-        Render::DrawTexturedQuad(sTexShoulder, shoulderR, kShoulderCapSize, shoulderCapAngleR, clothColor, true);
+        Render::DrawTexturedQuad(sTexShoulder, shoulderL, kShoulderCapSize, shoulderCapAngleL, armsColor);
+        Render::DrawTexturedQuad(sTexShoulder, shoulderR, kShoulderCapSize, shoulderCapAngleR, armsColor, true);
 
         // Hands, tinted by grip state (ported from PlayerController.SetHandsColor).
         // Hand.png's real pivot is at its own bottom edge (wrist), not
@@ -663,58 +753,193 @@ namespace App
     // every menu screen (no sCamera/sLevel to read from yet).
     static void BeginMenuFrame()
     {
-        Render::BeginFrame(Vec2(0.0f, 0.0f), 6.0f);
+        Render::BeginFrame(kMenuCamPos, kMenuOrthoHalfHeight);
     }
 
-    static void DrawMenuList(const char *title, const char **items, int count, int cursor)
+    // Reuses cave_bg.png (already rocky/jagged, see TODO.md) as a full-
+    // screen backdrop for the non-gameplay menu screens, tinted dusk-blue so
+    // it reads as a distant mountain range rather than the tiled cave-wall
+    // DrawGameplayWorld uses the same texture for. One big quad, sized to
+    // exactly cover kMenuOrthoHalfHeight's visible area -- the menu camera
+    // never moves, so no tiling is needed.
+    static void DrawMenuBackground()
     {
-        Render::DrawUIText(sFontUI, 0.38f, 0.15f, title, 0xFFFFFFFF, 1.4f);
+        Render::DrawTexturedQuad(sTexCaveBg, kMenuCamPos, Vec2(16.0f, 12.0f), 0.0f, 0xFF465A78);
+    }
+
+    // Converts a DrawUIText-style normalized screen fraction (nx,ny; 0,0 =
+    // top-left) into a world position under the given camera/zoom, using the
+    // same math Render::BeginFrame/WorldToScreenRect apply internally (1024x768
+    // window). Lets DrawMenuList draw world-space button boxes that line up
+    // with its text under BOTH the fixed menu camera and the pause overlay's
+    // live gameplay camera (which can be positioned/zoomed anywhere).
+    static Vec2 MenuWorldPos(float nx, float ny, Vec2 camPos, float orthoHalfHeight)
+    {
+        const float kAspectScale = 2.66667f; // (1024/768)*2
+        return Vec2(camPos.x + (nx - 0.5f) * orthoHalfHeight * kAspectScale,
+                    camPos.y - (ny - 0.5f) * orthoHalfHeight * 2.0f);
+    }
+
+    // Carved-stone banner for the main menu's "CRUX" title -- a stone-tinted
+    // slab with a darker bezel behind it (for a chiseled inset edge) and the
+    // title text given a hard dark drop-shadow + a light highlight offset
+    // the other way, so it reads as engraved into the slab rather than
+    // floating text over the mountain background.
+    static void DrawCruxBanner()
+    {
+        Vec2 center = MenuWorldPos(0.5f, 0.15f, kMenuCamPos, kMenuOrthoHalfHeight);
+        Vec2 slabSize(6.2f, 1.5f);
+
+        Render::DrawQuad(center, slabSize + Vec2(0.16f, 0.16f), 0.0f, 0xFF1A1410); // bezel edge
+        Render::DrawQuad(center, slabSize, 0.0f, 0xFF7A6A56);                      // stone slab face
+        Render::DrawQuad(center, slabSize - Vec2(0.3f, 0.3f), 0.0f, 0xFF6C5D4C);   // inset panel
+
+        const float kOx = 0.006f, kOy = 0.006f; // shadow/highlight offset, nx/ny fractions
+        Render::DrawUIText(sFontUI, 0.5f + kOx, 0.15f + kOy, "CRUX", 0xFF2A2018, 2.0f, true); // shadow
+        Render::DrawUIText(sFontUI, 0.5f - kOx, 0.15f - kOy, "CRUX", 0xFFE8DCC0, 2.0f, true); // highlight
+        Render::DrawUIText(sFontUI, 0.5f, 0.15f, "CRUX", 0xFFF0E8D8, 2.0f, true);             // face
+    }
+
+    // title may be NULL/empty to skip the plain-text title -- used by the
+    // Main Menu, which draws its own carved banner (DrawCruxBanner) instead.
+    static void DrawMenuList(const char *title, const char **items, int count, int cursor,
+                             Vec2 camPos = kMenuCamPos, float orthoHalfHeight = kMenuOrthoHalfHeight)
+    {
+        if (title && title[0])
+            Render::DrawUIText(sFontUI, 0.5f, 0.15f, title, 0xFFFFFFFF, 1.4f, true);
+
+        const float kNxCenter = 0.5f;
+        const float kBoxW = 3.6f, kBoxH = 0.62f;
         for (int i = 0; i < count; i++)
         {
+            float ny = 0.32f + i * 0.07f;
+            bool selected = (i == cursor);
+            Vec2 boxCenter = MenuWorldPos(kNxCenter, ny, camPos, orthoHalfHeight);
+
+            if (selected)
+                Render::DrawQuad(boxCenter, Vec2(kBoxW + 0.1f, kBoxH + 0.1f), 0.0f, 0xFF40E0E0);
+            Render::DrawQuad(boxCenter, Vec2(kBoxW, kBoxH), 0.0f, selected ? 0xFF204848 : 0xD0202028);
+
             char line[64];
-            snprintf(line, sizeof(line), "%s%s", (i == cursor) ? "> " : "  ", items[i]);
-            unsigned int color = (i == cursor) ? 0xFF40E0E0 : 0xFFE0E0E0;
-            Render::DrawUIText(sFontUI, 0.38f, 0.32f + i * 0.07f, line, color, 1.1f);
+            snprintf(line, sizeof(line), "%s%s", selected ? "> " : "", items[i]);
+            unsigned int color = selected ? 0xFF40E0E0 : 0xFFE0E0E0;
+            Render::DrawUIText(sFontUI, kNxCenter, ny, line, color, 1.1f, true);
         }
-        Render::DrawUIText(sFontUI, 0.30f, 0.85f, "Left/Right: move   Jump: select   Restart: back", 0xFFA0A0A0, 0.8f);
+        Render::DrawUIText(sFontUI, 0.5f, 0.85f, "Left/Right: move   Jump: select   Restart: back", 0xFFA0A0A0, 0.8f, true);
     }
 
     static void DrawMainMenu()
     {
         BeginMenuFrame();
+        DrawMenuBackground();
+        DrawCruxBanner();
         static const char *kItems[] = { "Play", "Select Level", "Customize" };
-        DrawMenuList("CRUX", kItems, 3, sMenuCursor);
+        DrawMenuList(NULL, kItems, 3, sMenuCursor);
         Render::EndFrame();
     }
 
+    // Each level as a tile: name, a thumbnail (cave_bg reused with a
+    // per-tile hue so tiles are visually distinct -- there's no real
+    // per-level art yet, see TODO.md), the saved PB (Save::, spans all
+    // levels regardless of which one is currently loaded), and the gold-
+    // medal time as "score to beat" (ScoreTracker's medal thresholds are the
+    // same for every level right now -- see score.h -- so this is the same
+    // sScore instance any level would use; FormatScore doesn't depend on
+    // which level is active).
+    //
+    // Laid out as a paginated kLevelGridCols x kLevelGridRows grid (not one
+    // long row) so this scales to a much larger level count -- built with an
+    // eye toward ~20 levels, not just the current 3 placeholders. The
+    // active page is DERIVED from sMenuCursor (page = cursor / tilesPerPage)
+    // rather than tracked separately, so Left/Right's existing linear
+    // cursor wrap (unchanged from before) pages automatically as the cursor
+    // crosses a page boundary; Up/Down jump a full row (see
+    // UpdateLevelSelect) for faster 2D movement within/across pages.
     static void DrawLevelSelect()
     {
         BeginMenuFrame();
-        char labels[8][16];
-        const char *items[8];
+        DrawMenuBackground();
+
         int count = LevelData::PlaceholderLevelCount();
-        for (int i = 0; i < count; i++)
+        const int kTilesPerPage = kLevelGridCols * kLevelGridRows;
+        int pageCount = (count + kTilesPerPage - 1) / kTilesPerPage;
+        int page = sMenuCursor / kTilesPerPage;
+        int pageStart = page * kTilesPerPage;
+
+        char title[40];
+        if (pageCount > 1)
+            snprintf(title, sizeof(title), "SELECT LEVEL  (page %d/%d)", page + 1, pageCount);
+        else
+            snprintf(title, sizeof(title), "SELECT LEVEL");
+        Render::DrawUIText(sFontUI, 0.5f, 0.06f, title, 0xFFFFFFFF, 1.4f, true);
+
+        static const unsigned int kTileHues[] =
         {
-            snprintf(labels[i], sizeof(labels[i]), "Level %d", i + 1);
-            items[i] = labels[i];
+            0xFF6090B0, 0xFF80A868, 0xFFB08858, 0xFFA07098, 0xFF70A0A0, 0xFFB0A060
+        };
+        const float kTileW = 4.2f, kTileH = 4.0f;
+        const float kColSpacing = 5.0f, kRowSpacing = 4.6f;
+        const float kGridTop = 2.4f;
+        float startX = -kColSpacing * (kLevelGridCols - 1) * 0.5f;
+
+        for (int local = 0; local < kTilesPerPage; local++)
+        {
+            int i = pageStart + local;
+            if (i >= count) break;
+            int col = local % kLevelGridCols;
+            int row = local / kLevelGridCols;
+            Vec2 tileCenter(startX + col * kColSpacing, kGridTop - row * kRowSpacing);
+            bool selected = (i == sMenuCursor);
+
+            if (selected)
+                Render::DrawQuad(tileCenter, Vec2(kTileW + 0.25f, kTileH + 0.25f), 0.0f, 0xFF40E0E0);
+            Render::DrawQuad(tileCenter, Vec2(kTileW, kTileH), 0.0f, 0xE0202028);
+
+            Vec2 thumbCenter = tileCenter + Vec2(0.0f, 0.9f);
+            unsigned int hue = kTileHues[i % (sizeof(kTileHues) / sizeof(kTileHues[0]))];
+            Render::DrawTexturedQuad(sTexCaveBg, thumbCenter, Vec2(kTileW - 0.4f, 1.3f), 0.0f, hue);
+
+            float nx = 0.5f + tileCenter.x / 16.0f;
+            char line[48];
+
+            snprintf(line, sizeof(line), "Level %d", i + 1);
+            float ny = 0.5f - (tileCenter.y - 0.35f) / 12.0f;
+            Render::DrawUIText(sFontUI, nx, ny, line, selected ? 0xFF40E0E0 : 0xFFE0E0E0, 0.85f, true);
+
+            if (Save::HasBest(i))
+            {
+                char pb[16];
+                sScore.FormatScore(Save::GetBest(i), pb, sizeof(pb));
+                snprintf(line, sizeof(line), "PB: %s", pb);
+            }
+            else
+            {
+                snprintf(line, sizeof(line), "PB: --");
+            }
+            ny = 0.5f - (tileCenter.y - 1.0f) / 12.0f;
+            Render::DrawUIText(sFontUI, nx, ny, line, 0xFFC0C0C0, 0.7f, true);
+
+            char goal[16];
+            sScore.FormatScore(sScore.Thresholds().gold, goal, sizeof(goal));
+            snprintf(line, sizeof(line), "Beat: %s", goal);
+            ny = 0.5f - (tileCenter.y - 1.6f) / 12.0f;
+            Render::DrawUIText(sFontUI, nx, ny, line, 0xFFD4AF37, 0.7f, true);
         }
-        DrawMenuList("SELECT LEVEL", items, count, sMenuCursor);
+
+        Render::DrawUIText(sFontUI, 0.5f, 0.92f, "Left/Right: move   Up/Down: row   Jump: select   Restart: back", 0xFFA0A0A0, 0.75f, true);
         Render::EndFrame();
     }
 
-    // Live rest-pose preview so the color choice is visible while cycling
-    // -- draws the rig directly with fixed constants rather than through
-    // sPlayer, since sPlayer may not be Reset() yet if Play hasn't been
-    // picked (its default-constructed state isn't a real rest pose).
-    static void DrawCustomizer()
+    // Draws the rig with each limb group's OWN committed colour
+    // (sLimbColorIndex), except the limb currently being edited in step 1's
+    // grid, which live-previews the swatch under the cursor instead of the
+    // committed value -- so you see the change before confirming with Jump.
+    static void DrawCustomizerRig(Vec2 bodyPos, int previewLimb, int previewSwatch)
     {
-        BeginMenuFrame();
-
-        Render::DrawUIText(sFontUI, 0.38f, 0.10f, "CUSTOMIZE", 0xFFFFFFFF, 1.4f);
-
-        unsigned int clothColor = kPlayerColors[sPlayerColorIndex];
-        Vec2 bodyPos(0.0f, -0.5f);
         float bodyRotZ = 0.0f;
+        unsigned int torsoColor = (previewLimb == kLimbTorso) ? kColorSwatches[previewSwatch] : kColorSwatches[sLimbColorIndex[kLimbTorso]];
+        unsigned int armsColor = (previewLimb == kLimbArms) ? kColorSwatches[previewSwatch] : kColorSwatches[sLimbColorIndex[kLimbArms]];
+        unsigned int legsColor = (previewLimb == kLimbLegs) ? kColorSwatches[previewSwatch] : kColorSwatches[sLimbColorIndex[kLimbLegs]];
 
         Vec2 shoulderL = bodyPos + kShoulderOffsetLeft;
         Vec2 shoulderR = bodyPos + kShoulderOffsetRight;
@@ -724,36 +949,91 @@ namespace App
         Vec2 handR = bodyPos + kHandOffsetRight;
         Vec2 legDir(0.0f, -kLegLength);
 
-        DrawLimb(sTexLeg, hipL, hipL + legDir, kLimbAspect, clothColor, 180.0f);
-        DrawLimb(sTexLeg, hipR, hipR + legDir, kLimbAspect, clothColor, 0.0f, false, true);
+        DrawLimb(sTexLeg, hipL, hipL + legDir, kLimbAspect, legsColor, 180.0f);
+        DrawLimb(sTexLeg, hipR, hipR + legDir, kLimbAspect, legsColor, 0.0f, false, true);
         Render::DrawTexturedQuad(sTexFeet, hipL + legDir, kFeetSize, 0.0f, 0xFFFFFFFF, true);
         Render::DrawTexturedQuad(sTexFeet, hipR + legDir, kFeetSize, 0.0f, 0xFFFFFFFF, false);
 
-        Render::DrawTexturedQuad(sTexBody, bodyPos, kBodySize, bodyRotZ, clothColor);
+        Render::DrawTexturedQuad(sTexBody, bodyPos, kBodySize, bodyRotZ, torsoColor);
         Vec2 shortsPos = bodyPos + kShortsLocalOffset;
-        Render::DrawTexturedQuad(sTexShorts, shortsPos, kShortsSize, bodyRotZ, clothColor);
+        Render::DrawTexturedQuad(sTexShorts, shortsPos, kShortsSize, bodyRotZ, torsoColor);
         Vec2 bagPos = bodyPos + kBagLocalOffset;
         Render::DrawTexturedQuad(sTexBag, bagPos, kBagSize, bodyRotZ, 0xFFFFFFFF);
         Vec2 headPos = bodyPos + kHeadLocalOffset;
         Render::DrawTexturedQuad(sTexHead, headPos, kHeadSize, bodyRotZ, 0xFFFFFFFF);
 
-        DrawLimb(sTexArm, shoulderL, handL, kLimbAspect, clothColor);
-        DrawLimb(sTexArm, shoulderR, handR, kLimbAspect, clothColor, 0.0f, true);
+        DrawLimb(sTexArm, shoulderL, handL, kLimbAspect, armsColor);
+        DrawLimb(sTexArm, shoulderR, handR, kLimbAspect, armsColor, 0.0f, true);
         float capAngleL = AngleAlong(shoulderL - handL);
         float capAngleR = AngleAlong(shoulderR - handR);
-        Render::DrawTexturedQuad(sTexShoulder, shoulderL, kShoulderCapSize, capAngleL, clothColor);
-        Render::DrawTexturedQuad(sTexShoulder, shoulderR, kShoulderCapSize, capAngleR, clothColor, true);
+        Render::DrawTexturedQuad(sTexShoulder, shoulderL, kShoulderCapSize, capAngleL, armsColor);
+        Render::DrawTexturedQuad(sTexShoulder, shoulderR, kShoulderCapSize, capAngleR, armsColor, true);
         Render::DrawTexturedQuad(sTexHand, handL, kHandSize, 0.0f, 0xFFFFFFFF, true);
         Render::DrawTexturedQuad(sTexHand, handR, kHandSize, 0.0f, 0xFFFFFFFF, false);
+    }
 
-        Render::DrawUIText(sFontUI, 0.38f, 0.78f, "Left/Right: change color   Jump/Restart: back", 0xFFA0A0A0, 0.8f);
+    static void DrawColorGrid(int limb, int cursor)
+    {
+        char title[32];
+        snprintf(title, sizeof(title), "%s COLOUR", kLimbGroupNames[limb]);
+        Render::DrawUIText(sFontUI, 0.56f, 0.16f, title, 0xFFFFFFFF, 1.2f);
+
+        int rows = (kColorSwatchCount + kColorGridCols - 1) / kColorGridCols;
+        const float kCell = 0.9f, kGap = 0.18f;
+        float gridH = rows * kCell + (rows - 1) * kGap;
+        Vec2 gridOrigin(2.1f, 1.2f + gridH * 0.5f); // top-left swatch center, world space
+
+        for (int i = 0; i < kColorSwatchCount; i++)
+        {
+            int r = i / kColorGridCols;
+            int c = i % kColorGridCols;
+            Vec2 pos(gridOrigin.x + c * (kCell + kGap), gridOrigin.y - r * (kCell + kGap));
+            if (i == cursor)
+                Render::DrawQuad(pos, Vec2(kCell + 0.2f, kCell + 0.2f), 0.0f, 0xFF40E0E0);
+            Render::DrawQuad(pos, Vec2(kCell, kCell), 0.0f, kColorSwatches[i]);
+        }
+
+        Render::DrawUIText(sFontUI, 0.42f, 0.78f, "Arrows: move   Jump: confirm   Restart: cancel", 0xFFA0A0A0, 0.8f);
+    }
+
+    // Live rest-pose preview so the color choice is visible while picking --
+    // draws the rig directly with fixed constants rather than through
+    // sPlayer, since sPlayer may not be Reset() yet if Play hasn't been
+    // picked (its default-constructed state isn't a real rest pose). Rig is
+    // pushed to the left half of the screen so it doesn't overlap the
+    // limb-list/color-grid UI on the right.
+    static void DrawCustomizer()
+    {
+        BeginMenuFrame();
+        DrawMenuBackground();
+
+        Render::DrawUIText(sFontUI, 0.10f, 0.06f, "CUSTOMIZE", 0xFFFFFFFF, 1.4f);
+
+        Vec2 bodyPos(-5.3f, -0.3f);
+        int previewLimb = (sCustomizerStep == 1) ? sCustomizerLimb : -1;
+        DrawCustomizerRig(bodyPos, previewLimb, sColorGridCursor);
+
+        if (sCustomizerStep == 0)
+        {
+            static const char *kItems[] = { "Torso", "Arms", "Legs" };
+            DrawMenuList("PICK A LIMB", kItems, kLimbGroupCount, sMenuCursor);
+        }
+        else
+        {
+            DrawColorGrid(sCustomizerLimb, sColorGridCursor);
+        }
+
         Render::EndFrame();
     }
 
     static void DrawPauseMenuOverlay()
     {
+        // Dim the gameplay world behind the pause list -- oversized quad so
+        // it covers the visible area regardless of the camera's current zoom
+        // (CameraController.cs dynamically zooms out during flight).
+        Render::DrawQuad(sCamera.Position(), Vec2(100.0f, 100.0f), 0.0f, 0x90000000);
         static const char *kItems[] = { "Resume", "Reset Level", "Main Menu" };
-        DrawMenuList("PAUSED", kItems, 3, sMenuCursor);
+        DrawMenuList("PAUSED", kItems, 3, sMenuCursor, sCamera.Position(), sCamera.OrthoSize());
     }
 
     void Draw()
