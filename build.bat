@@ -37,6 +37,18 @@ if errorlevel 1 (
 
 echo.
 echo ================================================
+echo  Converting sprites to GTF (PS3 texture pipeline)
+echo ================================================
+powershell -File "buildscripts\make_textures.ps1"
+if errorlevel 1 (
+    echo.
+    echo *** Texture conversion FAILED ^(PS3 build will fall back to flat colors^) ***
+) else (
+    echo Textures OK -^> data\gtf\*.gtf
+)
+
+echo.
+echo ================================================
 echo  Building Crux - PS3 (crux.ppu.self)
 echo ================================================
 "C:\msys64\usr\bin\bash.exe" -lc "export PATH='/d/PS3/host-win32/spu/bin:/d/PS3/host-win32/ppu/bin:/d/PS3/host-win32/sn/bin:/d/PS3/host-win32/bin:/d/PS3/host-win32/Cg/bin:/c/Program Files (x86)/SN Systems/PS3/bin':$PATH; export CELL_SDK=/d/PS3; export SCE_PS3_ROOT=/d/PS3; cd '/d/ClaudeCode/Crux PS3'; make"
@@ -67,6 +79,8 @@ if errorlevel 1 (
     move /y crux.ppu.elf "Build\PS3\" >nul
     move /y vs_quad.vpo "Build\PS3\" >nul
     move /y fs_quad.fpo "Build\PS3\" >nul
+    move /y vs_quad_tex.vpo "Build\PS3\" >nul 2>nul
+    move /y fs_quad_tex.fpo "Build\PS3\" >nul 2>nul
     xcopy /y /e /i /q data "Build\PS3\data\" >nul
     copy /y PS3_DEPLOY_README.txt "Build\PS3\README.txt" >nul
     rd /s /q "buildscripts\pkg_stage" >nul 2>nul

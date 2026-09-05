@@ -5,6 +5,8 @@ using namespace cell::Gcm;
 #include <vectormath/cpp/vectormath_aos.h>
 using namespace Vectormath::Aos;
 #include <sys/paths.h>
+#include <string.h>
+#include <stdio.h>
 
 #include "gcmutil.h"
 using namespace CellGcmUtil;
@@ -24,13 +26,23 @@ namespace Render
         CellGcmTexture sDepthTexture;
         float sDisplayAspectRatio = 1.0f;
 
+        // Flat-color quad shader (DrawQuad).
         Shader_t sVShader;
         Shader_t sFShader;
         Memory_t sFShaderUCode;
-        const uint32_t VS_UF_MVP_MATRIX = 0;
-
         #define VERTEX_SHADER   SYS_APP_HOME "/vs_quad.vpo"
         #define FRAGMENT_SHADER SYS_APP_HOME "/fs_quad.fpo"
+
+        // Textured quad shader (DrawTexturedQuad), added once real sprites
+        // made it through the PNG->DDS->GTF pipeline (see TODO.md).
+        Shader_t sVShaderTex;
+        Shader_t sFShaderTex;
+        Memory_t sFShaderTexUCode;
+        #define VERTEX_SHADER_TEX   SYS_APP_HOME "/vs_quad_tex.vpo"
+        #define FRAGMENT_SHADER_TEX SYS_APP_HOME "/fs_quad_tex.fpo"
+
+        const uint32_t VS_UF_MVP_MATRIX = 0;
+        Matrix4 sMVP; // recomputed each BeginFrame, reused by whichever shader draws
 
         // Packed color is read as CELL_GCM_VERTEX_UB,4 (unsigned byte, normalized) --
         // not float, unlike the gcmutil "basic2" sample's vertex color setup, which
@@ -38,12 +50,25 @@ namespace Render
         // (reading past the field into the next vertex). Byte order for the fixed
         // COLOR attribute is GPU-convention BGRA; this hasn't been verified on real
         // hardware yet -- if colors come out channel-swapped on first hardware test,
-        // swap the byte order written in DrawQuad below.
+        // swap the byte order written in DrawQuad/DrawTexturedQuad below.
         struct QuadVertex { float x, y, z; uint32_t argb; };
+        struct TexQuadVertex { float x, y, z; uint32_t argb; float u, v; };
+
         const uint32_t MAX_QUADS = 4096;
         Memory_t sVB;
         QuadVertex *sVBPtr = 0;
         uint32_t sQuadCount = 0;
+
+        const uint32_t MAX_TEX_QUADS = 4096;
+        Memory_t sVBTex;
+        TexQuadVertex *sVBTexPtr = 0;
+        uint32_t sTexQuadCount = 0;
+
+        // Loaded textures, indexed by (handle - 1).
+        const uint32_t MAX_TEXTURES = 32;
+        CellGcmTexture sTextures[MAX_TEXTURES];
+        Memory_t sTextureImages[MAX_TEXTURES];
+        uint32_t sTextureCount = 0;
     }
 
     bool Init()
@@ -80,17 +105,30 @@ namespace Render
         if (!cellGcmUtilLoadShader(FRAGMENT_SHADER, &sFShader)) return false;
         if (!cellGcmUtilGetFragmentUCode(&sFShader, CELL_GCM_LOCATION_LOCAL, &sFShaderUCode)) return false;
 
-        // Dynamic, CPU-written-every-frame quad buffer -- kept in MAIN memory
-        // (not LOCAL/VRAM) since the CPU rewrites it every DrawQuad call.
+        if (!cellGcmUtilLoadShader(VERTEX_SHADER_TEX, &sVShaderTex)) return false;
+        if (!cellGcmUtilLoadShader(FRAGMENT_SHADER_TEX, &sFShaderTex)) return false;
+        if (!cellGcmUtilGetFragmentUCode(&sFShaderTex, CELL_GCM_LOCATION_LOCAL, &sFShaderTexUCode)) return false;
+
+        // Dynamic, CPU-written-every-frame quad buffers -- kept in MAIN memory
+        // (not LOCAL/VRAM) since the CPU rewrites them every Draw*Quad call.
         if (!cellGcmUtilAllocateMain(MAX_QUADS * 4 * sizeof(QuadVertex), 128, &sVB)) return false;
         sVBPtr = reinterpret_cast<QuadVertex *>(sVB.addr);
+
+        if (!cellGcmUtilAllocateMain(MAX_TEX_QUADS * 4 * sizeof(TexQuadVertex), 128, &sVBTex)) return false;
+        sVBTexPtr = reinterpret_cast<TexQuadVertex *>(sVBTex.addr);
 
         return true;
     }
 
     void Shutdown()
     {
+        for (uint32_t i = 0; i < sTextureCount; i++)
+            cellGcmUtilFree(&sTextureImages[i]);
+        cellGcmUtilFree(&sVBTex);
         cellGcmUtilFree(&sVB);
+        cellGcmUtilDestroyShader(&sVShaderTex);
+        cellGcmUtilDestroyShader(&sFShaderTex);
+        cellGcmUtilFree(&sFShaderTexUCode);
         cellGcmUtilDestroyShader(&sVShader);
         cellGcmUtilDestroyShader(&sFShader);
         cellGcmUtilFree(&sFShaderUCode);
@@ -98,9 +136,42 @@ namespace Render
         cellGcmUtilFree(&sDepthBuffer);
     }
 
+    TextureHandle LoadTexture(const char *path)
+    {
+        if (sTextureCount >= MAX_TEXTURES) return 0;
+
+        // "body.png" -> "/data/gtf/body.gtf" (see buildscripts/make_textures.ps1,
+        // which converts every data/sprites/*.png to data/gtf/*.gtf at build time).
+        char name[128];
+        strncpy(name, path, sizeof(name) - 1);
+        name[sizeof(name) - 1] = '\0';
+        char *dot = strrchr(name, '.');
+        if (dot) *dot = '\0';
+
+        char fullPath[256];
+        snprintf(fullPath, sizeof(fullPath), SYS_APP_HOME "/data/gtf/%s.gtf", name);
+
+        uint32_t idx = sTextureCount;
+        if (!cellGcmUtilLoadTexture(fullPath, CELL_GCM_LOCATION_MAIN, &sTextures[idx], &sTextureImages[idx]))
+            return 0;
+
+        sTextureCount++;
+        return sTextureCount; // 1-based; 0 stays "invalid"
+    }
+
+    FontHandle LoadFont(const char * /*path*/, int /*pointSize*/)
+    {
+        // gcmutil ships one fixed built-in debug font (cellDbgFontDrawGcm),
+        // no per-font loading concept -- return a nonzero dummy so call
+        // sites that check "== 0" for failure don't misreport success as
+        // failure. DrawUIText below ignores the handle value entirely.
+        return 1;
+    }
+
     void BeginFrame(Vec2 camPos, float orthoHalfHeight)
     {
         sQuadCount = 0;
+        sTexQuadCount = 0;
 
         cellGcmSetDepthTestEnable(CELL_GCM_FALSE);
         cellGcmSetBlendEnable(CELL_GCM_TRUE);
@@ -127,11 +198,7 @@ namespace Render
                       Vector4(0.0f, sy, 0.0f, 0.0f),
                       Vector4(0.0f, 0.0f, sz, 0.0f),
                       Vector4(tx, ty, tz, 1.0f));
-        Matrix4 mvp = transpose(ortho);
-
-        cellGcmSetVertexProgram(sVShader.program, sVShader.ucode);
-        cellGcmSetFragmentProgram(sFShader.program, sFShaderUCode.offset);
-        cellGcmSetVertexProgramConstants(VS_UF_MVP_MATRIX, 16, reinterpret_cast<const float *>(&mvp));
+        sMVP = transpose(ortho);
     }
 
     void DrawQuad(Vec2 center, Vec2 size, float rotationDeg, unsigned int argb)
@@ -156,6 +223,10 @@ namespace Render
 
         uint32_t byteOffset = sVB.offset + sQuadCount * 4 * sizeof(QuadVertex);
 
+        cellGcmSetVertexProgram(sVShader.program, sVShader.ucode);
+        cellGcmSetFragmentProgram(sFShader.program, sFShaderUCode.offset);
+        cellGcmSetVertexProgramConstants(VS_UF_MVP_MATRIX, 16, reinterpret_cast<const float *>(&sMVP));
+
         cellGcmSetInvalidateVertexCache();
         cellGcmSetVertexDataArray(CELL_GCMUTIL_ATTR_POSITION, 0, sizeof(QuadVertex), 3, CELL_GCM_VERTEX_F,
                                    sVB.location, byteOffset);
@@ -170,30 +241,65 @@ namespace Render
         sQuadCount++;
     }
 
-    TextureHandle LoadTexture(const char * /*path*/)
+    void DrawTexturedQuad(TextureHandle tex, Vec2 center, Vec2 size, float rotationDeg, unsigned int tintArgb, bool flipX)
     {
-        // TODO(TODO.md: PS3 texture pipeline): real sprites need PNG->DDS->GTF
-        // conversion (dds2gtf, D:/PS3/host-win32/bin) plus cellGcmUtilLoadTexture
-        // and a textured variant of vs_quad.cg/fs_quad.cg (UV attribute + sampler).
-        // Until that's wired up, every "textured" quad below just draws flat-
-        // colored so the PS3 build keeps compiling and running.
-        return 0;
-    }
+        if (tex == 0 || tex > sTextureCount)
+        {
+            DrawQuad(center, size, rotationDeg, tintArgb);
+            return;
+        }
+        if (sTexQuadCount >= MAX_TEX_QUADS) return;
 
-    void DrawTexturedQuad(TextureHandle /*tex*/, Vec2 center, Vec2 size, float rotationDeg, unsigned int tintArgb, bool /*flipX*/)
-    {
-        // flipX has no effect on a flat-colored quad; will matter once real
-        // textures are wired up (see LoadTexture's TODO above).
-        DrawQuad(center, size, rotationDeg, tintArgb);
-    }
+        float rad = rotationDeg * (3.14159265f / 180.0f);
+        float cs = cosf(rad), sn = sinf(rad);
+        float hx = size.x * 0.5f, hy = size.y * 0.5f;
 
-    FontHandle LoadFont(const char * /*path*/, int /*pointSize*/)
-    {
-        // gcmutil ships one fixed built-in debug font (cellDbgFontDrawGcm),
-        // no per-font loading concept -- return a nonzero dummy so call
-        // sites that check "== 0" for failure don't misreport success as
-        // failure. DrawUIText below ignores the handle value entirely.
-        return 1;
+        // Vertex order: bottom-left, bottom-right, top-right, top-left.
+        float lx[4] = { -hx,  hx,  hx, -hx };
+        float ly[4] = { -hy, -hy,  hy,  hy };
+        // GTF row 0 is the image's top row, and local +Y is "up" -- so the
+        // top-left vertex (index 3) maps to uv(0,0), bottom-left (index 0) to
+        // uv(0,1). flipX swaps the U side, mirroring the source image
+        // horizontally (matches SDL_FLIP_HORIZONTAL on the PC backend).
+        float u0 = flipX ? 1.0f : 0.0f;
+        float u1 = flipX ? 0.0f : 1.0f;
+        float us[4] = { u0, u1, u1, u0 };
+        float vs[4] = { 1.0f, 1.0f, 0.0f, 0.0f };
+
+        TexQuadVertex *v = sVBTexPtr + sTexQuadCount * 4;
+        for (int i = 0; i < 4; i++)
+        {
+            v[i].x = center.x + (lx[i] * cs - ly[i] * sn);
+            v[i].y = center.y + (lx[i] * sn + ly[i] * cs);
+            v[i].z = 0.0f;
+            v[i].argb = tintArgb;
+            v[i].u = us[i];
+            v[i].v = vs[i];
+        }
+
+        uint32_t byteOffset = sVBTex.offset + sTexQuadCount * 4 * sizeof(TexQuadVertex);
+
+        cellGcmSetVertexProgram(sVShaderTex.program, sVShaderTex.ucode);
+        cellGcmSetFragmentProgram(sFShaderTex.program, sFShaderTexUCode.offset);
+        cellGcmSetVertexProgramConstants(VS_UF_MVP_MATRIX, 16, reinterpret_cast<const float *>(&sMVP));
+        cellGcmUtilSetTextureUnit(0, &sTextures[tex - 1]);
+
+        cellGcmSetInvalidateVertexCache();
+        cellGcmSetVertexDataArray(CELL_GCMUTIL_ATTR_POSITION, 0, sizeof(TexQuadVertex), 3, CELL_GCM_VERTEX_F,
+                                   sVBTex.location, byteOffset);
+        cellGcmSetVertexDataArray(CELL_GCMUTIL_ATTR_COLOR, 0, sizeof(TexQuadVertex), 4, CELL_GCM_VERTEX_UB,
+                                   sVBTex.location, byteOffset + sizeof(float) * 3);
+        cellGcmSetVertexDataArray(CELL_GCMUTIL_ATTR_TEXCOORD0, 0, sizeof(TexQuadVertex), 2, CELL_GCM_VERTEX_F,
+                                   sVBTex.location, byteOffset + sizeof(float) * 3 + sizeof(uint32_t));
+
+        cellGcmSetDrawArrays(CELL_GCM_PRIMITIVE_TRIANGLE_FAN, 0, 4);
+
+        cellGcmUtilInvalidateTextureUnit(0);
+        cellGcmSetVertexDataArray(CELL_GCMUTIL_ATTR_POSITION, 0, 0, 0, CELL_GCM_VERTEX_F, CELL_GCM_LOCATION_LOCAL, 0);
+        cellGcmSetVertexDataArray(CELL_GCMUTIL_ATTR_COLOR, 0, 0, 0, CELL_GCM_VERTEX_UB, CELL_GCM_LOCATION_LOCAL, 0);
+        cellGcmSetVertexDataArray(CELL_GCMUTIL_ATTR_TEXCOORD0, 0, 0, 0, CELL_GCM_VERTEX_F, CELL_GCM_LOCATION_LOCAL, 0);
+
+        sTexQuadCount++;
     }
 
     void DrawUIText(FontHandle /*font*/, float nx, float ny, const char *text, unsigned int colorArgb, float scale)
@@ -212,7 +318,7 @@ namespace Render
     void EndFrame()
     {
         // Flip is driven by the SampleBasic template's main loop (main_ps3.cpp),
-        // not here -- nothing to do per-DrawQuad-batch beyond what BeginFrame set up.
+        // not here -- nothing to do per-frame beyond what BeginFrame set up.
     }
 
     bool ShouldQuit()

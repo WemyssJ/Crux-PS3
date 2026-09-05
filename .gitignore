@@ -13,3 +13,5 @@ buildscripts/pkg_stage/
 *.pkg
 PARAM.SFO
 save.dat
+data/gtf/
+*.dds

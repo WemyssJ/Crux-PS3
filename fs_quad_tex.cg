@@ -1,0 +1,14 @@
+/* Samples the bound texture and modulates by vertex color (used for hand-
+ * color-state tinting etc., same role tintArgb plays on the PC/SDL2 side). */
+void main
+(
+	float4 color_in		: COLOR,
+	float2 texcoord		: TEXCOORD0,
+
+	uniform sampler2D tex : TEXUNIT0,
+
+	out float4 color_out : COLOR
+)
+{
+	color_out = tex2D(tex, texcoord) * color_in;
+}

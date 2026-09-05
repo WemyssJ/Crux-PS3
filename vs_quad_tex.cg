@@ -1,0 +1,20 @@
+/* Textured-quad vertex shader (Render::DrawTexturedQuad) -- same per-frame
+ * orthographic MVP as vs_quad.cg, plus a passthrough UV coordinate. Modeled
+ * on D:/PS3/samples/common/gcmutil/samples/dice's vs_simple.cg. */
+void main
+(
+	float4 position	: POSITION,
+	float4 color	: COLOR,
+	float2 texcoord	: TEXCOORD0,
+
+	uniform float4x4 ModelViewProjMatrix : C0,
+
+	out float4 oPosition : POSITION,
+	out float4 oColor    : COLOR,
+	out float2 oTexCoord : TEXCOORD0
+)
+{
+	oPosition = mul(ModelViewProjMatrix, position);
+	oColor = color;
+	oTexCoord = texcoord;
+}
