@@ -93,6 +93,20 @@ the project root, that's a bug, not intended.
   `isFlipped` actually look right in motion? This needs live play (press
   the flip key mid-swing), not a screenshot — genuinely can't verify
   further without a human at the keyboard or a way to script input timing.
+  (Tried once: temporarily patched `input_pc.cpp` behind a
+  `CRUX_SCRIPTED_TEST` macro to drive `Input::` from a hardcoded frame
+  script instead of real keys, sidestepping the input-injection problem
+  entirely. Partially useful — it did produce a genuine in-flight/falling
+  screenshot showing the rig reads fine while airborne (arms/legs/cap/bag
+  all sensible, nothing broken or misscaled) — but SDL/asset-loading takes
+  long enough on first launch that several fixed-timestep ticks fire in a
+  burst before the window is even visible, so the scripted frame numbers
+  (tuned for one tick per screenshot-poll) fired well before intended and
+  the both-hands-attach/flip-mid-swing scenarios never cleanly triggered
+  (angular velocity stayed ~0 throughout since left/right was never held,
+  so flip's rotation-sign effect had nothing to act on). Reverted the
+  patch fully rather than sink more time into burst-proofing it — a real
+  keypress remains the reliable way to check this specific one.)
 - **Pause needs a real keypress test.** Tried scripting this four different
   ways (`SendKeys`, `keybd_event`, and `SendInput` — the last confirmed
   successful via both its return codes and a verified genuine
@@ -110,8 +124,12 @@ the project root, that's a bug, not intended.
   `packaging/ICON0.PNG` (currently a crop of `head.png`) are placeholders.
   Real title art/ID is a user call, not something to guess further.
 - **Rig proportions in motion.** Everything's been checked at-rest or in a
-  landing pose; mid-swing/flying/both-hands-attached poses haven't had
-  dedicated screenshot passes.
+  landing pose; mid-swing/both-hands-attached poses still haven't had
+  dedicated screenshot passes. One data point now exists for airborne/
+  falling: the scripted-input attempt above (before it fell through the
+  level's reset trigger) caught a genuine in-flight frame — rig reads fine
+  spread out mid-air, nothing broken or misscaled. Not a substitute for
+  seeing a real controlled swing→flight arc, but a positive sign.
 - **PS3 save-data writability.** PB persistence (`save.cpp`) uses plain
   `fopen`/`fwrite` to `SYS_APP_HOME/save.dat` on PS3, not `cellSaveData`.
   Works in principle (same stdio calls as the PC version, which is
