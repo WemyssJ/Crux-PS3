@@ -68,6 +68,18 @@ namespace App
     // Iteration 4 (user-reported): arms/legs read as ~50% too small overall
     // (both length and thickness) -- scaled the reach anchor 1.5x from the
     // previous iteration's (-0.62, 0.95).
+    // Iteration 5 (tried, reverted): computed this from Player.prefab's real
+    // local transforms (Arm at (-0.45,0.725) rotated 55deg, Hand+HandGrip
+    // (0,2.25) further out in Arm-local space, x0.6 for this project's
+    // Unity-relative unit scale) -- got (-1.376, 1.209). Screenshot-verified
+    // it against the reference-matched pose this guess was tuned to and it
+    // was a clear regression (arms read shorter, hands barely above ear
+    // height instead of the validated V-shaped reach), so the derivation
+    // has an error somewhere (likely a rotation-direction or composition-
+    // order mistake, or Unity's rest-pose angle isn't representative of the
+    // grabbing pose) -- reverted rather than trust the math over confirmed
+    // visual ground truth. Worth another attempt once real rig-export data
+    // is available to cross-check against, rather than re-deriving blind.
     static const Vec2 kHandOffsetLeft(-0.93f, 1.43f);
     static const Vec2 kHandOffsetRight(0.93f, 1.43f);
     static const float kHandGripRadius = 0.15f;

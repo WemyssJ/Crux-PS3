@@ -276,6 +276,31 @@ it can't be tested on hardware yet.
   (`data/level1.lvl` … `level7.lvl`, `data/player_rig.txt`), swap the
   placeholder level/rig constants in `app.cpp` for the real thing — this
   would also resolve a lot of the remaining rig-proportion guesswork.
+  **Tried a shortcut this session, worth knowing about:** Unity prefab/
+  scene/`.meta` files are plain YAML, so `Assets/Prefab/Player.prefab`'s
+  real transform hierarchy (Arm/Leg/Shoulder/Bag/Head local positions and
+  rotations, `Arm.png`/`Leg.png`/etc.'s real pivot/pixel-per-unit import
+  settings) is readable straight from disk without the Editor — a research
+  agent extracted the full hierarchy (see git log for the exact numbers).
+  Composed the hand-grip offset from it (Arm's local pos+rotation, plus
+  Hand/HandGrip's further local offset, scaled by this project's Unity-
+  relative unit factor of 0.6) and it screenshot-verified as a **regression**
+  against the already-reference-matched pose — reverted (see `app.cpp`'s
+  `kHandOffsetLeft` comment for the exact math and why it's suspect: likely
+  a rotation-direction/composition-order mistake, or Unity's rest-pose
+  angle isn't representative of the actual grabbing pose). Didn't even
+  attempt Shoulder/Bag/Head/Leg from this data — those sprites have
+  non-center pivots (e.g. Shoulder/Bag pivot at their own bottom-left, not
+  center), so their GameObject position isn't directly comparable to this
+  project's center-anchored `DrawTexturedQuad` convention without ALSO
+  knowing each sprite's real visible-content bounds (which needs pixel
+  inspection, not just the `.meta`, since a few of these rig constants were
+  already knowingly tuned against real pixel content over raw canvas size
+  — see `kLimbAspect`'s comment). Net takeaway: the real transform data
+  exists and is readable, but composing it correctly by hand is error-prone
+  enough that the actual Editor export (which would give Unity-resolved
+  world positions directly, no manual composition needed) remains the
+  reliable path — don't re-attempt this manual derivation blind again.
 - **On-hardware testing.** The DECHJ00A is powered off. `Build\PS3\` is
   staged and ready (see `PS3_DEPLOY_README.txt`) for whenever it's back on
   — either via Target Manager (target "PS3 Test", 10.1.1.2), copying the
